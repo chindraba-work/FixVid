@@ -99,6 +99,7 @@ Available commands are:
         identified in the fixvid.conf file as the stereo source. Applies
         the enhancements to the stereo sound track and creates an .aac
         and .ac3 file of the original and the enhaced soundtracks.
+
     video [<group_num>]
         Extract the video from the file and stream indentified in the
         fixvid.conf file. Will make multiple copies of the video if the
