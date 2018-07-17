@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# file is copied into the directory fixvid is called from.
+
+# Name used as the prefix for work files, and the name of the final
+# product.
+final_file='';
+
+# Name of the video that is stored in the meta data of the files.
+#
+# !! The string in _mostly_ safe, but will break on appostraphes
+#
+video_title='';
+
+########################################################################
+#
+#                        Video component settings
+#
+#  File that has the video to use as the source for the final product
+video_source='';
+video_stream=0;
+# Adjustments to the video itself. Either may be set to the default, but
+# if one is used, both _MUST_ be used.
+adjust_contrast='1.12'; # default 1
+adjust_brightness='0.18'; # default 0
+# Adjustments to the video's resolution, size, aspect ratio, etc.
+# adjust_video='scale=1920x796,setsar=1/1';
+# The codec to use in the final product, hevc_nvenc or h264_nvenc for me
+video_codec='hevc_nvenc';
+# The extra parameters to pass to the video encoder
+# H264 uses these, with adjustments as needed
+# video_codec_params="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -profile:v high -level 4.1";
+# HEVC uses these, with adustments as needed
+video_codec_params='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -profile:v main -level 4.1 -tier high';
+
+
+########################################################################
+#
+#                        Audio component settings
+#
+#  File that has the audio to use as the source for the final product
+surround_source='';
+surround_stream=1;
+
+# surround_layout='5.1';
+# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
+# channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+
+# surround_layout='5.1(side)';
+# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
+# channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+
+# SETTINGS for dynaudnorm filter
+#################################
+# f frame-size(ms)[10-8000,500]: size of each frame for gain
+#   calculations
+# g Gaussian filter window size(frames)[3-301(odd),31]: the "window"
+#   over which gain is normalized
+# p peak target(%of FS)[.01-.99,.95]: the target max volume of
+#   normalization.
+# m max-gain[1-100,10]: globally applied limit to gain applied to any
+#   segment.
+# r RMS[0.0(disabled)-1.0]: Use RMS calculations, rather than "peak" for
+#   gain factors
+# s compression factor[0.0(disabled)-30.0]: lower is more dynamic
+#   compression, 3 seems a hard no-distortion floor.
+
+dyna_stereo='dynaudnorm=f=300:g=23:p=0.95:m=30:s=30';
+dyna_front='dynaudnorm=f=250:g=23:p=0.89:m=15:s=30';
+dyna_surround='dynaudnorm=f=500:g=31:p=0.80:m=15:s=30';
+dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=30';
+
+
+
+# Subtitle component settings
+title_source='';
+title_stream=0;
+hi_title_source='';
+hi_title_stream=0;
+
