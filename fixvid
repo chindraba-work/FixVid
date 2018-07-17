@@ -11,7 +11,26 @@ while [ -L "$fixvid_source" ]; do # resolve $fixvid_source until the file is no 
 done
 export fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
 
-test -s fixvid.conf && . fixvid.conf || exit 4;
+# Check for the existance of a command.
+if [ -z $1 ]; then
+  echo "";
+  echo "";
+  echo "No command given for fixvid to use."
+  cat "$fixvid_dir/usage";
+  exit;
+fi
+
+# Check for a valid command, meaning there is a same-named, executable
+# file in the fixvid root directory.
+command_check=$1;
+shift;
+if [ ! -x "$fixvid_dir/$command_check" ]; then
+  echo "";
+  echo "";
+  echo "Command $fixvid_dir/$command_check not available for fixvid to use."
+  cat "$fixvid_dir/usage";
+  exit;
+fi
 
 # Create and export some text shortcuts to use later.
 #
@@ -26,6 +45,12 @@ export output_flags="-fflags +genpts";
 export use_threads="-threads 64";
 # ffmpeg to strip the metadata from the input file, except chapter times
 export strip_meta="-map_metadata -1";
+
+# Call the command passed in, forwarding all other command line args
+$fixvid_dir/$command_check "$@";
+
+exit;
+
 
 # Build the total video filter argument for ffmpeg
 video_filter="yadif";

@@ -1,0 +1,11 @@
+
+
+Usage: fixvid <command> [arg [arg [...] ] ]
+
+Processs files in the current directory, according to the informaion in
+the fixvid.conf file as steps in creating a video file from the source
+file(s).
+
+Available commands are:
+
+    init    create the empty fixvid.conf file in the directory and scan for all .mp4, .mkv, and .avi files in the current directory and provide a filtered output from ffprobe for each. The scan results are displayed, and recorded in the fixvid.scan file.
