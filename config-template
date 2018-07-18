@@ -1,10 +1,23 @@
 #!/bin/bash
 
-# file is copied into the directory fixvid is called from.
+# This file is copied, as fixvid.conf, into the working directory
 
-# Name used as the prefix for work files, and the name of the final
-# product.
-final_file='';
+# Name used as the prefix for work files
+#
+# !! The string in _mostly_ safe, but will break on appostraphes
+# Still, it's better to keep things "shell-safe"
+#
+work_files='';
+
+# Name used as the prefix for the final product files
+#
+# !! The string in _mostly_ safe, but will break on appostraphes
+# Still, it's better to keep things _shell-safe_
+#
+final_files='';
+
+# Year the video was produced/released
+video_year='';
 
 # Name of the video that is stored in the meta data of the files.
 #
@@ -41,6 +54,8 @@ video_codec_params='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -p
 #  File that has the audio to use as the source for the final product
 surround_source='';
 surround_stream=1;
+stereo_source='';
+stereo_stream=2;
 
 # surround_layout='5.1';
 # stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
@@ -77,4 +92,7 @@ title_source='';
 title_stream=0;
 hi_title_source='';
 hi_title_stream=0;
+
+
+timestamp='1993-08-13T13:07:08.69Z';
 
