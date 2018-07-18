@@ -9,3 +9,5 @@ file(s).
 Available commands are:
 
     init    create the empty fixvid.conf file in the directory and scan for all .mp4, .mkv, and .avi files in the current directory and provide a filtered output from ffprobe for each. The scan results are displayed, and recorded in the fixvid.scan file.
+
+    stereo  extract the stereo sound track from the file and stream identified in the fixvid.conf file as the stereo source. Applies the enhancements to the stereo sound track and creates an .aac and .ac3 file of the original and the enhaced soundtracks.
