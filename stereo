@@ -1,0 +1,87 @@
+#!/bin/bash
+
+##
+##      NOTE:
+##
+##  The script will recreate all 4 soundtrack files everytime it is run.
+##  The performance hit for recreating the 2 un-enhanced stereo files
+##  is negligible compared to the speed of encoding only the enhanced
+##  versions, and does not justify the increased complexity of scripting
+##  to exclude them on reruns
+##
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || exit 4;
+
+# Set the output filename base
+stereo_prefix="${final_file}_stereo";
+
+# Skip this if it has already been done.
+# To rerun, delete the *_stereo_enhanced.ac3 file first
+if [ -s "${stereo_prefix}_enhanced.ac3" ]; then
+  exit;
+fi
+
+# Set the filename base for the command and log files
+control_prefix="fixvid_${stereo_prefix}";
+
+# Create the commmand file, which will do the work. It uses the data in
+# the configuration file to "fill in the blanks" for the ffmpeg call
+#
+#     dyna_stereo     The settings for dynaudnorm audio filter
+#     final_file      Used in creating the filenames used/made by fixvid
+#     stereo_source   Name of the file to extract from
+#     stereo_stream   Which stream in the file is the stereo stream
+#     timestamp       Set as the creation time for the streams. Is not
+#                     applied to the files themselves, only the metadata
+#     video_title     Used in the metadata of the stream files
+#
+# Generates 6 files:
+#     *_stereo.cmd            The complete ffmpeg command to execute
+#     *_stereo.log            The captured output of the ffmpeg command
+#     *_stereo.aac            The copied stereo soundtrack, AC3 format
+#     *_stereo.ac3            The copied stereo soundtrack, AC3 format
+#     *_stereo_enhanced.aac   The enhanced soundtrack, AAC format
+#     *_stereo_enhanced.ac3   The enhanced soundtrack, AC3 format
+
+cat <<EOC > "$control_prefix.cmd"
+FFREPORT=file="$control_prefix.log":level=40 \\
+ffmpeg -hide_banner -y -loglevel error -stats \\
+-fflags +igndts -i "$stereo_source" \\
+-filter_complex "[0:$stereo_stream] asplit=3 [AAC][AC3][IN];\\
+[IN] $dyna_stereo [NORM];[NORM] asplit [AACe][AC3e]" \\
+-map "[AAC]" \\
+-map_metadata -1 -metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title="$video_title" -metadata:s:0 title="Stereo" \\
+-c:0 aac -ab 256k \\
+-threads 64 -fflags +genpts \\
+${stereo_prefix}.ac3 \\
+-map "[AC3]" \\
+-map_metadata -1 -metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title="$video_title" -metadata:s:0 title="Stereo" \\
+-c:1 ac3 \\
+-threads 64 -fflags +genpts \\
+${stereo_prefix}.ac3 \\
+-map "[AACe]" \\
+-map_metadata -1 -metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title="$video_title" -metadata:s:0 title="Stereo (Enhanced)" \\
+-c:2 aac -ab 256k \\
+-threads 64 -fflags +genpts \\
+${stereo_prefix}_enhanced.aac \\
+-map "[AC3e]" \\
+-map_metadata -1 -metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title="$video_title" -metadata:s:0 title="Stereo (Enhanced)" \\
+-c:3 ac3 \\
+-threads 64 -fflags +genpts \\
+${stereo_prefix}_enhanced.ac3;
+EOC
+
+# Make the newly created file executable
+chmod +x "$control_prefix.cmd";
+
+# Execute the just-made ffmpeg command
+./"$control_prefix.cmd";
