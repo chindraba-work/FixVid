@@ -1,0 +1,131 @@
+#!/bin/bash
+
+##
+##      NOTE:
+##
+##  The stereo_mix variable in fixvid.conf are pre-built for either 5.1,
+##  or 5.1(side) channel layouts in the surround sound source. Using a
+##  different channel layout requires that the pan=stereo filter be set
+##  to handle the new configuration.
+##
+
+#
+# Command script to extract the surround sound from a file and convert
+# it to stereo, and enhance the stereo, saving both the extracted and
+# adjusted versions.
+#
+# Uses the stereo_mix variable from the fixvid.conf file to determine
+# the mixing from the available channels. Currently the mix found to
+# work best is in the config-template for both 5.1 and 5.1(side)
+# layouts. Other layouts will need to be determined when they are
+# encountered and place in the stereo_mix variable of the fixvid.conf
+# file.
+#
+# Accepts no arguments.
+#
+# Reads fixvid.conf for:
+#     work_files      the prefix of filenames for work files
+#     video_title     added to the title metadata of the files
+#     surround_source file with the surround sound stream to use
+#     surround_stream the index (zero-based) of the surround stream
+#     stereo_mix      filter applied to surround sound to create the
+#                     stereo soundtrack
+#     dyna_stereo     the filter to use for enhancing the stereo stream
+#     timestamp       entered in the creation_time metadata for streams
+#
+# Displays the ffmpeg progress line while running amd the results of the
+# time command once finished.
+#
+# Generates 6 files:
+#     fixvid_*_stereo.cmd     The complete ffmpeg command to execute
+#     fixvid_*_stereo.log     The captured output of the ffmpeg command
+#     *_stereo.aac            The copied stereo soundtrack, AC3 format
+#     *_stereo.ac3            The copied stereo soundtrack, AC3 format
+#     *_stereo_adjusted.aac   The adjusted soundtrack, AAC format
+#     *_stereo_adjusted.ac3   The adjusted soundtrack, AC3 format
+#
+
+##
+##      NOTE:
+##
+##  The script will recreate all 4 soundtrack files everytime it is run.
+##  The performance hit for recreating the 2 un-adjusted stereo files
+##  is negligible compared to the speed of encoding only the adjusted
+##  versions, and does not justify the increased complexity of scripting
+##  to exclude them on reruns
+##
+##      NOTE:
+##
+##  The stereo and hts-stereo commands create the same group of files,
+##  and will overwrite the other's output. Only one stereo soundtrack is
+##  needed, and selecting the best available for use while ignoring all
+##  others will avoid any complications from the two commands creating
+##  the same group of files.
+##
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || exit 4;
+
+# Set the output filename base
+stereo_prefix="${work_files}_stereo";
+
+# Skip this if it has already been done.
+# To rerun, delete the *_stereo_adjusted.aac file first
+if [ -s "${stereo_prefix}_adjusted.aac" ]; then
+  exit;
+fi
+
+# Set the filename base for the command and log files
+control_prefix="fixvid_${stereo_prefix}";
+
+# Create the commmand file, which will do the work. It uses the data in
+# the configuration file to "fill in the blanks" for the ffmpeg call
+#
+
+cat <<EOC > "$control_prefix.cmd"
+FFREPORT=file='$control_prefix.log':level=40 \\
+ffmpeg -hide_banner -y -loglevel error -stats \\
+-fflags +igndts -i '$surround_source' \\
+-filter_complex '[0:$surround_stream] $stereo_mix [STEREO];\
+[STEREO] asplit=3 [AAC][AC3][IN];\
+[IN] $dyna_stereo [NORM];\
+[NORM] asplit [AACe][AC3e]' \\
+-map "[AAC]" \\
+-map_metadata -1 -map_chapters -1 \\
+-metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title='$video_title' -metadata:s:0 title='Stereo' \\
+-c:0 libfdk_aac -profile:a aac_he -b:a 128k \\
+-threads 64 -fflags +genpts \\
+'${stereo_prefix}.aac' \\
+-map "[AC3]" \\
+-map_metadata -1 -map_chapters -1 \\
+-metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title='$video_title' -metadata:s:0 title='Stereo' \\
+-c:0 ac3 -b:a 192k \\
+-threads 64 -fflags +genpts \\
+'${stereo_prefix}.ac3' \\
+-map "[AACe]" \\
+-map_metadata -1 -map_chapters -1 \\
+-metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title='$video_title' -metadata:s:0 title='Stereo (Enhanced)' \\
+-c:0 libfdk_aac -profile:a aac_he -b:a 128k \\
+-threads 64 -fflags +genpts \\
+'${stereo_prefix}_adjusted.aac' \\
+-map "[AC3e]" \\
+-map_metadata -1 -map_chapters -1 \\
+-metadata creation_time=$timestamp \\
+-metadata language=eng -metadata:s:0 language=eng \\
+-metadata title='$video_title' -metadata:s:0 title='Stereo (Enhanced)' \\
+-c:0 ac3 -b:a 192k \\
+-threads 64 -fflags +genpts \\
+'${stereo_prefix}_adjusted.ac3';
+EOC
+
+# Make the newly created file executable
+chmod +x "$control_prefix.cmd";
+
+# Execute the just-made ffmpeg command
+time ./"$control_prefix.cmd";
