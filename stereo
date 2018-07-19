@@ -1,5 +1,23 @@
 #!/bin/bash
 
+#
+# Command script to extract, and enhance, the stereo soundtrack from a
+# file.
+#
+# Accepts no arguments.
+#
+# Displays the ffmpeg progress line while running amd the results of the
+# time command once finished.
+#
+# Generates 6 files:
+#     fixvid_*_stereo.cmd     The complete ffmpeg command to execute
+#     fixvid_*_stereo.log     The captured output of the ffmpeg command
+#     *_stereo.aac            The copied stereo soundtrack, AC3 format
+#     *_stereo.ac3            The copied stereo soundtrack, AC3 format
+#     *_stereo_enhanced.aac   The enhanced soundtrack, AAC format
+#     *_stereo_enhanced.ac3   The enhanced soundtrack, AC3 format
+#
+
 ##
 ##      NOTE:
 ##
@@ -36,19 +54,12 @@ control_prefix="fixvid_${stereo_prefix}";
 #                     applied to the files themselves, only the metadata
 #     video_title     Used in the metadata of the stream files
 #
-# Generates 6 files:
-#     *_stereo.cmd            The complete ffmpeg command to execute
-#     *_stereo.log            The captured output of the ffmpeg command
-#     *_stereo.aac            The copied stereo soundtrack, AC3 format
-#     *_stereo.ac3            The copied stereo soundtrack, AC3 format
-#     *_stereo_enhanced.aac   The enhanced soundtrack, AAC format
-#     *_stereo_enhanced.ac3   The enhanced soundtrack, AC3 format
 
 cat <<EOC > "$control_prefix.cmd"
 FFREPORT=file='$control_prefix.log':level=40 \\
 ffmpeg -hide_banner -y -loglevel error -stats \\
 -fflags +igndts -i '$stereo_source' \\
--filter_complex '[0:$stereo_stream] asplit=3 [AAC][AC3][IN];\\
+-filter_complex '[0:$stereo_stream] asplit=3 [AAC][AC3][IN];\
 [IN] $dyna_stereo [NORM];[NORM] asplit [AACe][AC3e]' \\
 -map "[AAC]" \\
 -map_metadata -1 -metadata creation_time=$timestamp \\
@@ -56,7 +67,7 @@ ffmpeg -hide_banner -y -loglevel error -stats \\
 -metadata title='$video_title' -metadata:s:0 title='Stereo' \\
 -c:0 aac -ab 256k \\
 -threads 64 -fflags +genpts \\
-'${stereo_prefix}.ac3' \\
+'${stereo_prefix}.aac' \\
 -map "[AC3]" \\
 -map_metadata -1 -metadata creation_time=$timestamp \\
 -metadata language=eng -metadata:s:0 language=eng \\
@@ -84,4 +95,4 @@ EOC
 chmod +x "$control_prefix.cmd";
 
 # Execute the just-made ffmpeg command
-./"$control_prefix.cmd";
+time ./"$control_prefix.cmd";
