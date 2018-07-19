@@ -1,5 +1,22 @@
 #!/bin/bash
 
+#
+# Command script to initialize the working directory for using fixvid in
+# it. Copies the configuration template to the working directory naming
+# it fixvid.conf. Will not overwrite an existing file of that name. Also
+# searches the directory for all files with .mp4, .mkv, .avi, .ac3, and
+# .aac extentions, assuming they may contain video or sound that is of
+# use in the process. All files, including symlinks, found are passed to
+# the ffprobe command, and the pertinant results displayed to the user
+# and saved into the fixvid.scan file ro later reference.
+#
+# Accepts no arguments
+#
+# Creates the following files
+#     fixvid.conf       The copied template for the configuration
+#     fixvid.scan       The ffprobe results from all candidate files
+#
+
 test -s fixvid.conf || cp "$fixvid_dir/config-template" fixvid.conf;
 
 for file_type in "mp4" "mkv" "avi" "aac" "ac3" "wav" "mp3"; do
@@ -9,7 +26,7 @@ for file_type in "mp4" "mkv" "avi" "aac" "ac3" "wav" "mp3"; do
       echo "********************************************************************************" | tee -a "fixvid.scan";
       echo "    Reading $filename:" | tee -a "fixvid.scan";
       echo "--------------------------------------------------------------------------------" | tee -a "fixvid.scan";
-      ffprobe -hide_banner "$filename" 2>&1 | grep -A 2 -E 'Stream|Chapter|Duration' | grep -v '^--' | tee -a "fixvid.scan";
+      $fixvid_dir/explore "$filename" | tee -a "fixvid.scan";
       echo "" | tee -a "fixvid.scan";
       echo "" | tee -a "fixvid.scan";
     fi
