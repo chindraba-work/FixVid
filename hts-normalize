@@ -1,0 +1,127 @@
+#!/bin/bash
+
+##
+##      NOTE:
+##
+##  This file is only set up for processing of files related to a
+##  surround sound soundtrack of either 5.1 or 5.1(side). Any other type
+##  of surround sound setup, 7.1, etc., will require a complete set of
+##  command files to replace hts-split, hts-normalize, and hts-merge
+##
+
+#
+# Command script to normalize each of the independent channel files from
+# the surround sound soundtrack. Uses the files created by hts-split.
+# If any of the 6 input files are missing, forces a run of hts-split.
+#
+# Accepts no arguments.
+#
+# Reads fixvid.conf for:
+#     work_files      the prefix of filenames for work files
+#     video_title     added to the title metadata of the files
+#     timestamp       entered in the creation_time metadata for streams
+#     dyna_center     the filter to apply to the center channel
+#     dyna_front      the filter to apply to the left & right channels
+#     dyna_surround   the filter to apply to other channels
+# Reads the 6 channel files made by hts-split:
+#     *_surround_fc.wav     The front center channel from the source
+#     *_surround_fl.wav     The front left channel from the source
+#     *_surround_fr.wav     The front right channel from the source
+#     *_surround_lf.wav     The low frequency channel from the source
+#     *_surround_sl.wav     The surround left channel from the source
+#     *_surround_sr.wav     The surround right channel from the source
+#
+# Displays the ffmpeg progress line while running amd the results of the
+# time command once finished.
+#
+# Generates 8 files:
+#     fixvid_*_normal.cmd    The complete ffmpeg command to execute
+#     fixvid_*_normal.log    The captured output of the ffmpeg command
+#     *_surround_efc.wav     The front center channel from the source
+#     *_surround_efl.wav     The front left channel from the source
+#     *_surround_efr.wav     The front right channel from the source
+#     *_surround_elf.wav     The low frequency channel from the source
+#     *_surround_esl.wav     The surround left channel from the source
+#     *_surround_esl.wav     The surround right channel from the source
+#
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || exit 4;
+
+# Set the output filename base
+surround_prefix="${work_files}_surround";
+
+# Skip this if it has already been done.
+# To rerun, delete the *_split_fc.wav file first
+if [ -s "${surround_prefix}_fce.wav" ]; then
+  exit;
+fi
+
+if \
+  [ ! -s "${surround_prefix}_fc.wav" ] || \
+  [ ! -s "${surround_prefix}_fl.wav" ] || \
+  [ ! -s "${surround_prefix}_fr.wav" ] || \
+  [ ! -s "${surround_prefix}_lf.wav" ] || \
+  [ ! -s "${surround_prefix}_sl.wav" ] || \
+  [ ! -s "${surround_prefix}_sr.wav" ]; then
+    rm -f "${surround_prefix}_fc.wav"
+    fixvid "hts-split";
+fi
+
+cat <<EOC > "$control_prefix.cmd"
+FFREPORT=file='$control_prefix.part':level=40 \\
+ffmpeg -hide_banner -loglevel error -stats -y \\
+-fflags +igndts -i ${surround_prefix}_fc.wav \\
+-map 0:0 -af "$dyna_center" \\
+-c:0 pcm_s16le -b:a 384k \\
+-threads 64 -fflags +genpts \\
+${surround_prefix}_efc.wav;
+cat "$control_prefix.part" > $control_prefix.log;
+FFREPORT=file='$control_prefix.part':level=40 \\
+ffmpeg -hide_banner -loglevel error -stats -y \\
+-fflags +igndts -i ${surround_prefix}_fl.wav \\
+-map 0:0 -af "$dyna_front" \\
+-c:0 pcm_s16le -b:a 384k \\
+-threads 64 -fflags +genpts \\
+${surround_prefix}_efl.wav;
+cat "$control_prefix.part" >> $control_prefix.log;
+FFREPORT=file='$control_prefix.part':level=40 \\
+ffmpeg -hide_banner -loglevel error -stats -y \\
+-fflags +igndts -i ${surround_prefix}_fr.wav \\
+-map 0:0 -af "$dyna_front" \\
+-c:0 pcm_s16le -b:a 384k \\
+-threads 64 -fflags +genpts \\
+${surround_prefix}_efr.wav;
+cat "$control_prefix.part" >> $control_prefix.log;
+FFREPORT=file='$control_prefix.part':level=40 \\
+ffmpeg -hide_banner -loglevel error -stats -y \\
+-fflags +igndts -i ${surround_prefix}_lf.wav \\
+-map 0:0 -af "$dyna_surround" \\
+-c:0 pcm_s16le -b:a 384k \\
+-threads 64 -fflags +genpts \\
+${surround_prefix}_elf.wav;
+cat "$control_prefix.part" >> $control_prefix.log;
+FFREPORT=file='$control_prefix.part':level=40 \\
+ffmpeg -hide_banner -loglevel error -stats -y \\
+-fflags +igndts -i ${surround_prefix}_sl.wav \\
+-map 0:0 -af "$dyna_surround" \\
+-c:0 pcm_s16le -b:a 384k \\
+-threads 64 -fflags +genpts \\
+${surround_prefix}_esl.wav;
+cat "$control_prefix.part" >> $control_prefix.log;
+FFREPORT=file='$control_prefix.part':level=40 \\
+ffmpeg -hide_banner -loglevel error -stats -y \\
+-fflags +igndts -i ${surround_prefix}_sr.wav \\
+-map 0:0 -af "$dyna_surround" \\
+-c:0 pcm_s16le -b:a 384k \\
+-threads 64 -fflags +genpts \\
+${surround_prefix}_esr.wav;
+cat "$control_prefix.part" >> $control_prefix.log;
+rm -f "$control_prefix.part"
+EOC
+
+# Make the newly created file executable
+chmod +x "$control_prefix.cmd";
+
+# Execute the just-made ffmpeg command
+time ./"$control_prefix.cmd";

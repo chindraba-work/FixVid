@@ -51,19 +51,24 @@ video_codec_params='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -p
 #
 #                        Audio component settings
 #
-#  File that has the audio to use as the source for the final product
+# File that has the audio to use as source for the final stereo stream
+stereo_source='';
+stereo_stream=1;
+
+# File that has the audio to use as source for the final surorund stream
 surround_source='';
 surround_stream=1;
-stereo_source='';
-stereo_stream=2;
 
+### Use for 5.1 surround sound
 # surround_layout='5.1';
-# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
 # channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
 
+### Use for 5.1(side) surround sound
 # surround_layout='5.1(side)';
-# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
 # channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
+
 
 # SETTINGS for dynaudnorm filter
 #################################
@@ -81,9 +86,9 @@ stereo_stream=2;
 #   compression, 3 seems a hard no-distortion floor.
 
 dyna_stereo='dynaudnorm=f=300:g=23:p=0.95:m=30:s=30';
+dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=30';
 dyna_front='dynaudnorm=f=250:g=23:p=0.89:m=15:s=30';
 dyna_surround='dynaudnorm=f=500:g=31:p=0.80:m=15:s=30';
-dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=30';
 
 
 
