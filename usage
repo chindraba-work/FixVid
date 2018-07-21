@@ -43,6 +43,10 @@ Available commands are:
                     ffprobe for each. The scan results are displayed,
                     and recorded in the fixvid.scan file.
 
+    subtitles-text <source_file> <source_stream> <title_label> <filename>
+                    Extract text-based subtitles from the given source
+                    and create the named Substation Alpha subtitle file.
+
     stereo          extract the stereo sound track from the file and
                     stream identified in the fixvid.conf file as the
                     stereo source. Applies the enhancements to the
