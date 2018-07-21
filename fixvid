@@ -24,6 +24,12 @@ fi
 # file in the fixvid root directory.
 command_check=$1;
 shift;
+
+if [ "xhelp" = "x${command_check,,}" ]; then
+  cat "$fixvid_dir/usage";
+  exit;
+fi
+
 if [ ! -x "$fixvid_dir/$command_check" ]; then
   echo "";
   echo "";
@@ -69,12 +75,8 @@ cat <<EOV >grab_video
 ffmpeg -hide_banner -loglevel error -stats -y \\
 $input_flags -i '$surround_source' \\
 -filter_complex '\
-    [0:$surround_stream] asplit=4 [surround_normal_ac3][surround_normal_dts][to_channels][to_stereo];\
+    [0:$surround_stream] asplit=4 [surround_normal_ac3][surround_normal_dts][to_channels];\
     [to_channels] channelsplit=channel_layout=$surround_layout [FL][FR][FC][LF][SL][SR];\
-    [to_stereo] $stereo_mix [stereo];\
-    [stereo] asplit [stereo_normal_ac3][to_stereo_enhanced];\
-    [to_stereo_enhanced] $dyna_stereo [stereo_enhanced];\
-    [stereo_enhanced] asplit [stereo_enhanced_ac3][stereo_enhanced_aac] \
 ' \\
 -map [surround_normal_ac3] \\
 $strip_meta -metadata language=eng  -metadata title='$video_title Surround Sound' \\
@@ -91,22 +93,7 @@ $audio_only $use_threads $output_flags "${final_file}_surround_normal.dts" \\
 -map [FC] '${final_title}_channel_fc.wav' \\
 -map [SL] '${final_title}_channel_sl.wav' \\
 -map [SR] '${final_title}_channel_sr.wav' \\
--map [LF] '${final_title}_channel_lf.wav' \\
--map [stereo_normal_ac3] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Stereo' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Stereo' \\
--c:0 ac3 \\
-$audio_only $use_threads $output_flags "${final_file}_stereo_normal.ac3" \\
--map [stereo_enhanced_ac3] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Enhanced Stereo' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Enhanced Stereo' \\
--c:0 ac3 \\
-$audio_only $use_threads $output_flags "${final_file}_stereo_enhanced.ac3" \\
--map [stereo_enhanced_aac] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Enhanced Stereo' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Enhanced Stereo' \\
--c:0 aac \\
-$audio_only $use_threads $output_flags "${final_file}_stereo_enhanced.aac";
+-map [LF] '${final_title}_channel_lf.wav';
 
 ffmpeg -hide_banner -loglevel error -stats -y \\
 $input_flags -i '${final_title}_channel_fl.wav' \\
@@ -130,20 +117,20 @@ $input_flags -i '${final_title}_channel_sle.wav' \\
 $input_flags -i '${final_title}_channel_sre.wav' \\
 $input_flags -i '${final_title}_channel_lfe.wav' \\
 -filter_complex '\
-    [0:0][1:0][2:0][3:0][4:0][5:0] amerge=inputs=6 [channels_enhanced];\
-    [channels_enhanced] $channels [surround_enhanced];\
-    [surround_enhanced] asplit [surround_enhanced_ac3][surround_enhanced_dts]\
+    [0:0][1:0][2:0][3:0][4:0][5:0] amerge=inputs=6 [CHANNELS_ENHANCED];\
+    [CHANNELS_ENHANCED] $channels [SURROUND_ENHANCED];\
+    [SURROUND_ENHANCED] asplit [SURROUND_ENHANCED_AC3][SURROUND_ENHANCED_DTS]\
 ' \\
--map [surround_enhanced_ac3] \\
+-map [SURROUND_ENHANCED_AC3] \\
 $strip_meta -metadata language=eng  -metadata title='$video_title Surround Sound Enhanced' \\
 -metadata:s:0 language=eng -metadata:s:0 title='$video_title Surround Sound Enhanced' \\
 -c:0 ac3 \\
-$audio_only $use_threads $output_flags "${final_file}_surround_enhanced.ac3" \\
--map [surround_enhanced_dts] \\
+$audio_only $use_threads $output_flags "${final_file}_surround_adjusted.ac3" \\
+-map [SURROUND_ENHANCED_DTS] \\
 $strip_meta -metadata language=eng  -metadata title='$video_title Surround Sound Enhanced' \\
 -metadata:s:0 language=eng -metadata:s:0 title='$video_title Surround Sound Enhanced' \\
 -c:0 dts -strict -2 \\
-$audio_only $use_threads $output_flags "${final_file}_surround_enhanced.dts";
+$audio_only $use_threads $output_flags "${final_file}_surround_adjusted.dts";
 
 
 ffmpeg -hide_banner -loglevel error -stats -y \\
@@ -172,7 +159,7 @@ $video_only $use_threads $output_flags "${final_file}_video.mkv";
 
 ffmpeg -hide_banner -loglevel error -stats -y \\
 $input_flags -i '${final_file}_video.mkv' \\
-$input_flags -i '${final_file}_stereo_enhanced.aac' \\
+$input_flags -i '${final_file}_stereo_adjusted.aac' \\
 $input_flags -i '${final_file}_subtitles-HI.ass' \\
 $input_flags -i '${final_file}_subtitles.ass' \\
 -map 0:0 -c:0 copy \\

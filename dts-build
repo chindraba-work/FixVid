@@ -1,0 +1,76 @@
+#!/bin/bash
+
+#
+# Command script to create surround sound files in the DTS format using
+# the previously created AC3 files. Will only create both the reqular
+# and adjusted versions if both versions exist in AC3 format. If either
+# version is missing, the script will abort.
+#
+# Accepts no arguments.
+#
+# Reads fixvid.conf for:
+#     work_files      the prefix of filenames for work files
+#     video_title     added to the title metadata of the files
+#     timestamp       entered in the creation_time metadata for streams
+#
+# Displays the ffmpeg progress line while running amd the results of the
+# time command once finished.
+#
+# Generates 4 files:
+#     fixvid_*_dts.cmd         The complete ffmpeg command to execute
+#     fixvid_*_dts.log         The captured output of the ffmpeg command
+#     *_surround.dts           The original soundtrack
+#     *_surround_adjusted.dts  The adjusted soundtrack
+#
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || exit 4;
+
+# Set the output filename base
+surround_prefix="${work_files}_surround";
+
+# Skip this if it has already been done.
+# To rerun, delete the *_stereo_adjusted.aac file first
+if [ -s "${surround_prefix}_adjusted.dts" ]; then
+  exit;
+fi
+
+if [ ! -s ${surround_prefix}.ac3 ] || [ ! -s ${surround_prefix}_adjusted.ac3 ]; then
+  exit;
+fi
+
+# Set the filename base for the command and log files
+control_prefix="fixvid_${surround_prefix}";
+
+# Create the commmand file, which will do the work. It uses the data in
+# the configuration file to "fill in the blanks" for the ffmpeg call
+#
+
+cat <<EOC > "$control_prefix.cmd"
+FFREPORT=file='$control_prefix.log':level=40 \\
+ffmpeg -hide_banner -y -loglevel error -stats \\
+-fflags +igndts -i '${surround_prefix}.ac3' \\
+-fflags +igndts -i '${surround_prefix}_adjusted.ac3' \\
+-map 0:0 \\
+-map_metadata -1 -map_chapters -1 \\
+-metadata creation_time=$timestamp \\
+-metadata language=eng -metadata title='$video_title' \\
+-metadata:s:0 language=eng -metadata:s:0 title='Surround Sound' \\
+-c:0 dts -b:a 768k -strict -2 \\
+-threads 64 -fflags +genpts \\
+'${surround_prefix}.dts' \\
+-map 1:0 \\
+-map_metadata -1 -map_chapters -1 \\
+-metadata creation_time=$timestamp \\
+-metadata language=eng -metadata title='$video_title' \\
+-metadata:s:0 language=eng -metadata:s:0 title='Surround Sound (Enhanced)' \\
+-c:0 dts -b:a 768k -strict -2 \\
+-threads 64 -fflags +genpts \\
+'${surround_prefix}_adjusted.dts';
+EOC
+
+# Make the newly created file executable
+chmod +x "$control_prefix.cmd";
+
+# Execute the just-made ffmpeg command
+time ./"$control_prefix.cmd";

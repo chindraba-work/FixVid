@@ -21,7 +21,7 @@ test -s fixvid.conf || cp "$fixvid_dir/config-template" fixvid.conf;
 
 for file_type in "mp4" "mkv" "avi" "aac" "ac3" "wav" "mp3"; do
   for filename in *.$file_type; do
-    if [ -s $filename ]; then
+    if [ -s "$filename" ]; then
       echo "";
       echo "********************************************************************************" | tee -a "fixvid.scan";
       echo "    Reading $filename:" | tee -a "fixvid.scan";
