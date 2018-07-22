@@ -16,7 +16,7 @@ if [ -z $1 ]; then
   echo "";
   echo "";
   echo "No command given for fixvid to use."
-  cat "$fixvid_dir/usage";
+  "$fixvid_dir/usage";
   exit;
 fi
 
@@ -26,7 +26,7 @@ command_check=$1;
 shift;
 
 if [ "xhelp" = "x${command_check,,}" ]; then
-  cat "$fixvid_dir/usage";
+  "$fixvid_dir/usage";
   exit;
 fi
 
@@ -34,7 +34,7 @@ if [ ! -x "$fixvid_dir/$command_check" ]; then
   echo "";
   echo "";
   echo "Command $fixvid_dir/$command_check not available for fixvid to use."
-  cat "$fixvid_dir/usage";
+  "$fixvid_dir/usage";
   exit;
 fi
 
