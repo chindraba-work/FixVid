@@ -13,10 +13,16 @@ export fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
 
 # Check for the existance of a command.
 if [ -z $1 ]; then
-  echo "";
-  echo "";
-  echo "No command given for fixvid to use."
-  "$fixvid_dir/usage";
+  "$fixvid_dir/usage" $(basename $0);
+  cat <<NOCMD | cat;
+
+    No $(basename $0) command given.
+
+    For available commands, use:
+    $ $(basename $0) help
+
+
+NOCMD
   exit;
 fi
 
@@ -26,15 +32,20 @@ command_check=$1;
 shift;
 
 if [ "xhelp" = "x${command_check,,}" ]; then
-  "$fixvid_dir/usage";
+  "$fixvid_dir/usage" $(basename $0);
   exit;
 fi
 
 if [ ! -x "$fixvid_dir/$command_check" ]; then
-  echo "";
-  echo "";
-  echo "Command $fixvid_dir/$command_check not available for fixvid to use."
-  "$fixvid_dir/usage";
+  "$fixvid_dir/usage" $(basename $0);
+  cat <<NONCMD | cat;
+
+    $command_check is not a valid $(basename $0) command.
+
+    For available commands, use:
+    $ $(basename $0) help
+
+NONCMD
   exit;
 fi
 
