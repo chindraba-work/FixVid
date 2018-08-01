@@ -1,0 +1,126 @@
+#!/bin/bash
+
+#
+# Command script to extract the video component from the source file and
+# apply any adjustments to it while creating a video-only file for use
+# in building the final product. Because of the need to make multiple
+# versions of the video, for evaluation purposes, this will require a
+# separate launcher with the ability to discriminate the variables from
+# the config file and options from the command line.
+#
+# Accepts upto 5 arguments, with 3 required:
+#       v_codec     The video codec used. As entered it is added to the
+#                   name of the created file. In all lower case it is
+#                   used as the codec in the ffmpeg command.
+#       v_params    Parameters needed to control the codec's output
+#       v_label     Used as the final part of the file name, to enable
+#                   the presence of multiple extracted versions
+#       [v_adjust]  Any adjustments needed to the video itself, most of
+#                   the time this will be scale factor and SAR values,
+#                   but other, more complex, options are available.
+#       [complex]   Only available if v_adjust is used, and then will
+#                   force the use of -filter_complex rather than -vf.
+#                   NOT a true/false, yes/no, 0/1 usage - ANYTHING here
+#                   will force -filter_complex, even 0, false, and no
+#                   -- When using a -filter_complex, the filter chain in
+#                   v_adjust muast have [AIN] as its only input pad and
+#                   [AOUT] as its only output pad.
+#
+# Reads fixvid.conf for:
+#       video_source
+#       video_strea,
+#       work_files
+#       video_title
+#       adjust_brightness
+#       adjust_contrast
+#       enable_nvidia
+#
+# Displays the ffmpeg progress line while running amd the results of the
+# time command once finished.
+#
+# Generates 1 file:
+#     *_video_codec_<v_label>.mkv  The recoded video from the source file
+#
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || exit 4;
+
+# Read the required arguments.
+[[ $1 ]] && v_codec_label="$1" || exit 4;
+[[ $2 ]] && v_params="$2" || exit 4;
+[[ $3 ]] && v_label="$3" || exit 4;
+# Set the output filename base
+
+# Read and set the optional argument
+[[ $4 ]] && v_adjust="$4" && [[ $5 ]] && use_complex=1;
+
+v_codec=${v_codec_label,,};
+[[ $enable_nvidia ]] && [[ $v_codec =~ hevc|h264 ]] && v_codec="${v_codec}_nvenc";
+video_prefix="${work_files}_video_${v_codec_label}_${v_label}";
+
+# Skip this if it has already been done.
+# To rerun, delete the *_video.mkv file first
+if [ -s "${video_prefix}.mkv" ]; then
+  exit;
+fi
+
+# Set the filename base for the command and log files
+control_prefix="fixvid_${video_prefix}";
+
+# Build the video mapping and filter line
+# Always use the yadif 'yet another de-interlace filter' filter
+[[ $use_complex ]] \
+  && filter_line="-filter_complex '[0:$video_stream] yadif " \
+  || filter_line="-map 0:$video_stream -vf yadif";
+
+# Adjusting brightness and/or contrast will require that both be set in
+# the config file, even if one is set to the default values, which are
+# noted in the config file for reference.
+if [ "x" != "x$adjust_brightness" ] && [ "x" != "x$adjust_contrast" ]; then
+  [[ $use_complex ]] \
+    && filter_line="${filter_line}[DIV];[DIV] eq=contrast=$adjust_contrast:brightness=$adjust_brightness " \
+    || video_filter="${filter_line},eq=contrast=$adjust_contrast:brightness=$adjust_brightness";
+fi
+
+# Add in the other adjustments to the video, should be for setting the
+# size, sar (screen aspect ratio), dar (display aspect ratio), etc.,
+# but can also be used for more complex effects, including cropping and
+# letterbox formating, or removing old letterbox formating (cropping).
+if [ "x" != "x$v_adjust" ]; then
+  [[ $use_complex ]] \
+    && filter_line="${filter_line}[AIN];$v_adjust' -map [AOUT]" \
+    || filter_line="$filter_line,$v_adjust";
+fi
+
+# build the final 'filter' for ffmpeg command
+[[ $use_complex ]] \
+  && v_filter="-filter_complex '$video_filter'" \
+  || v_filter="-vf '$video_filter'";
+
+# Create the commmand file, which will do the work. It uses the data in
+# the configuration file to "fill in the blanks" for the ffmpeg call
+#
+cat <<EOC > "$control_prefix.cmd"
+FFREPORT=file='$control_prefix.log':level=40 \\
+ffmpeg -hide_banner -y -loglevel error -stats \\
+-fflags +igndts -i '$video_source' \\
+$filter_line \\
+$strip_meta_all \\
+-metadata language=eng  -metadata title='$video_title' \\
+-metadata:s:0 language=eng -metadata:s:0 title='$video_title' \\
+-c:0 $v_codec $v_params \\
+$video_only $use_threads \\
+$output_flags "${video_prefix}.mkv";
+EOC
+
+# Make the newly created file executable
+chmod +x "$control_prefix.cmd";
+
+# Execute the just-made ffmpeg command
+time ./"$control_prefix.cmd";
+
+
+
+
+
+
