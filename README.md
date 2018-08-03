@@ -35,3 +35,25 @@ Additionally, as part of the transcoding, I want to retain the following files:
  - Downloaded from subtitle sites (where timing matches the source video).
 
 Originally built using Bash scripting, possible move to Perl as an upgrade.
+
+# Copyright and License
+
+    Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>
+    - All Rights Reserved
+
+    FixVid is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License,
+    version 2 only, as published by the Free Software Foundation.
+
+    FixVid is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the
+          Free Software Foundation, Inc.
+          51 Franklin Street
+          Fifth Floor
+          Boston, MA  02110-1301
+          USA.
