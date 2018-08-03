@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Command script to apply ffprobe and filter the output for pertinant
+# data.
+#
+# Accepts one argument: Name of the file to probe
+#
+# Displays, on STDOUT, the filtered results of the probe
+#
+# Generates no files
+#
+
+source=$1
+
+ffprobe -hide_banner -i "$source" 2>&1 | grep -A 2 -E '^\s*(Chapter|Duration|Stream)' | grep -v '^--'
+
