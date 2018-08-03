@@ -1,5 +1,35 @@
 #!/bin/bash
 
+########################################################################
+#                                                                      #
+#  usage: print usage and help information for the FixVid program      #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
 # Command script to show the help/usage information for the FixVid
 # project
 #
