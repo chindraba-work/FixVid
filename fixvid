@@ -1,35 +1,75 @@
 #!/bin/bash
 
-# Name used as the prefix for work files, and the name of the final
-# product.
-final_file="philo_stone";
+# Find the true directory for the fixvid code base, and share it below
+# all other fixvid commands will now be callable from within the code as
+# "$fixvid_dir/command"
+fixvid_source="${BASH_SOURCE[0]}"
+while [ -L "$fixvid_source" ]; do # resolve $fixvid_source until the file is no longer a symlink
+  fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )"
+  fixvid_source="$(readlink "$fixvid_source")"
+  [[ $fixvid_source != /* ]] && fixvid_source="$fixvid_dir/$fixvid_source" # if $fixvid_source was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+export fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
 
-# Name of the video that is stored in the meta data of the files.
-#
-# !! The string in _mostly_ safe, but will break if on appostraphes
-#
-video_title="Philosophers Stone";
+# Check for the existance of a command.
+if [ -z $1 ]; then
+  "$fixvid_dir/usage" $(basename $0);
+  cat <<NOCMD | cat;
 
-########################################################################
+    No $(basename $0) command given.
+
+    For available commands, use:
+    $ $(basename $0) help
+
+
+NOCMD
+  exit;
+fi
+
+# Check for a valid command, meaning there is a same-named, executable
+# file in the fixvid root directory.
+command_check=$1;
+shift;
+
+if [ "xhelp" = "x${command_check,,}" ]; then
+  "$fixvid_dir/usage" $(basename $0);
+  exit;
+fi
+
+if [ ! -x "$fixvid_dir/$command_check" ]; then
+  "$fixvid_dir/usage" $(basename $0);
+  cat <<NONCMD | cat;
+
+    $command_check is not a valid $(basename $0) command.
+
+    For available commands, use:
+    $ $(basename $0) help
+
+NONCMD
+  exit;
+fi
+
+# Create and export some text shortcuts to use later.
 #
-#                        Video component settings
-#
-#  File that has the video to use as the source for the final product
-video_source="video.mkv";
-video_stream=0;
-# Adjustments to the video itself either may be set to the default, but
-# if one is used, both _MUST_ be used.
-adjust_contrast="1.12"; # default 1
-adjust_brightness="0.18"; # default 0
-# Adjustments to the video's resolution, size, aspect ratio, etc.
-# adjust_video='scale=1920x796,setsar=1/1';
-# The codec to use in the final product, hevc_nvenc or h264_nvenc
-video_codec="hevc_nvenc";
-# The extra parameters to pass to the video encoder
-# H264 uses these, with adjustments as needed
-# video_codec_params="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -profile:v high -level 4.1";
-# HEVC uses these, with adustments as needed
-video_codec_params="-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -profile:v main -level 4.1 -tier high"
+# ffmpeg for ignoring all but the chosen type of stream
+export audio_only="-vn -sn -dn";
+export video_only="-an -sn -dn";
+export subtitles_only="-vn -an -dn";
+# ffmpeg to ignore input timestamps, and force creation of new ones
+export input_flags="-fflags +igndts";
+export output_flags="-fflags +genpts";
+# ffmpeg to leverage the multi-threading of the CPU, for aware libraries
+export use_threads="-threads 64";
+# ffmpeg to strip the metadata from the input file, except chapter times
+export strip_meta_only="-map_metadata -1";
+# ffmpeg to strip the metadata from the input file, including chapter times
+export strip_meta_all="-map_metadata -1 -map_chapters -1";
+
+# Call the command passed in, forwarding all other command line args
+$fixvid_dir/$command_check "$@";
+
+exit;
+
 
 # Build the total video filter argument for ffmpeg
 video_filter="yadif";
@@ -42,151 +82,9 @@ fi
 
 
 
-########################################################################
-#
-#                        Audio component settings
-#
-#  File that has the audio to use as the source for the final product
-surround_source="sound.mkv";
-surround_stream=1;
-
-surround_layout="5.1(side)";
-stereo_mix="pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR";
-channels="channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)"
-
-# SETTINGS for dynaudnorm filter
-#################################
-# f frame-size(ms)[10-8000,500]: size of each frame for gain
-#   calculations
-# g Gaussian filter window size(frames)[3-301(odd),31]: the "window"
-#   over which gain is normalized
-# p peak target(%of FS)[.01-.99,.95]: the target max volume of
-#   normalization.
-# m max-gain[1-100,10]: globally applied limit to gain applied to any
-#   segment.
-# r RMS[0.0(disabled)-1.0]: Use RMS calculations, rather than "peak" for
-#   gain factors
-# s compression factor[0.0(disabled)-30.0]: lower is more dynamic
-#   compression, 3 seems a hard no-distortion floor.
-
-dyna_stereo="dynaudnorm=f=300:g=23:p=0.95:m=30:s=30";
-dyna_front="dynaudnorm=f=250:g=23:p=0.89:m=15:s=30";
-dyna_side="dynaudnorm=f=500:g=31:p=0.80:m=15:s=30";
-dyna_center="dynaudnorm=f=100:g=13:p=0.97:m=15:s=30";
-
-
-
-# Subtitle component settings
-title_source="titles.ass";
-title_stream=0;
-hi_title_source="titles-hi.ass";
-hi_title_stream=0;
-
-audio_only="-vn -sn -dn";
-video_only="-an -sn -dn";
-title_only="-vn -an -dn";
-input_flags="-fflags +igndts";
-output_flags="-fflags +genpts";
-use_threads="-threads 64";
-strip_meta="-map_metadata -1";
 
 cat <<EOV >grab_video
 
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$input_flags -i '$surround_source' \\
--filter_complex '\
-    [0:$surround_stream] asplit=4 [surround_normal_ac3][surround_normal_dts][to_channels][to_stereo];\
-    [to_channels] channelsplit=channel_layout=$surround_layout [FL][FR][FC][LF][SL][SR];\
-    [to_stereo] $stereo_mix [stereo];\
-    [stereo] asplit [stereo_normal_ac3][to_stereo_enhanced];\
-    [to_stereo_enhanced] $dyna_stereo [stereo_enhanced];\
-    [stereo_enhanced] asplit [stereo_enhanced_ac3][stereo_enhanced_aac] \
-' \\
--map [surround_normal_ac3] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Surround Sound' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Surround Sound' \\
--c:0 ac3 \\
-$audio_only $use_threads $output_flags "${final_file}_surround_normal.ac3" \\
--map [surround_normal_dts] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Surround Sound' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Surround Sound' \\
--c:0 dts -strict -2 \\
-$audio_only $use_threads $output_flags "${final_file}_surround_normal.dts" \\
--map [FL] '${final_title}_channel_fl.wav' \\
--map [FR] '${final_title}_channel_fr.wav' \\
--map [FC] '${final_title}_channel_fc.wav' \\
--map [SL] '${final_title}_channel_sl.wav' \\
--map [SR] '${final_title}_channel_sr.wav' \\
--map [LF] '${final_title}_channel_lf.wav' \\
--map [stereo_normal_ac3] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Stereo' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Stereo' \\
--c:0 ac3 \\
-$audio_only $use_threads $output_flags "${final_file}_stereo_normal.ac3" \\
--map [stereo_enhanced_ac3] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Enhanced Stereo' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Enhanced Stereo' \\
--c:0 ac3 \\
-$audio_only $use_threads $output_flags "${final_file}_stereo_enhanced.ac3" \\
--map [stereo_enhanced_aac] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Enhanced Stereo' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Enhanced Stereo' \\
--c:0 aac \\
-$audio_only $use_threads $output_flags "${final_file}_stereo_enhanced.aac";
-
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$input_flags -i '${final_title}_channel_fl.wav' \\
-$input_flags -i '${final_title}_channel_fr.wav' \\
-$input_flags -i '${final_title}_channel_fc.wav' \\
-$input_flags -i '${final_title}_channel_sl.wav' \\
-$input_flags -i '${final_title}_channel_sr.wav' \\
-$input_flags -i '${final_title}_channel_lf.wav' \\
--map 0:0 -af '$dyna_front'  '${final_title}_channel_fle.wav' \\
--map 1:0 -af '$dyna_front'  '${final_title}_channel_fre.wav' \\
--map 2:0 -af '$dyna_center' '${final_title}_channel_fce.wav' \\
--map 3:0 -af '$dyna_side'   '${final_title}_channel_sle.wav' \\
--map 4:0 -af '$dyna_side'   '${final_title}_channel_sre.wav' \\
--map 5:0 -af '$dyna_side'   '${final_title}_channel_lfe.wav';
-
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$input_flags -i '${final_title}_channel_fle.wav' \\
-$input_flags -i '${final_title}_channel_fre.wav' \\
-$input_flags -i '${final_title}_channel_fce.wav' \\
-$input_flags -i '${final_title}_channel_sle.wav' \\
-$input_flags -i '${final_title}_channel_sre.wav' \\
-$input_flags -i '${final_title}_channel_lfe.wav' \\
--filter_complex '\
-    [0:0][1:0][2:0][3:0][4:0][5:0] amerge=inputs=6 [channels_enhanced];\
-    [channels_enhanced] $channels [surround_enhanced];\
-    [surround_enhanced] asplit [surround_enhanced_ac3][surround_enhanced_dts]\
-' \\
--map [surround_enhanced_ac3] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Surround Sound Enhanced' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Surround Sound Enhanced' \\
--c:0 ac3 \\
-$audio_only $use_threads $output_flags "${final_file}_surround_enhanced.ac3" \\
--map [surround_enhanced_dts] \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Surround Sound Enhanced' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Surround Sound Enhanced' \\
--c:0 dts -strict -2 \\
-$audio_only $use_threads $output_flags "${final_file}_surround_enhanced.dts";
-
-
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$input_flags -i '$title_source' \\
--map 0:$title_stream \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Subtitles' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Subtitles' \\
--c:0 ass \\
-$title_only $use_threads $output_flags "${final_file}_subtitles.ass";
-
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$input_flags -i '$hi_title_source' \\
--map 0:$hi_title_stream \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Hearing-Impaired Subtitles' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title Hearing-Impaired Subtitles' \\
--c:0 ass \\
-$title_only $use_threads $output_flags "${final_file}_subtitles-HI.ass";
 
 ffmpeg -hide_banner -loglevel error -stats -y \\
 $input_flags -i '$video_source' \\
@@ -198,7 +96,7 @@ $video_only $use_threads $output_flags "${final_file}_video.mkv";
 
 ffmpeg -hide_banner -loglevel error -stats -y \\
 $input_flags -i '${final_file}_video.mkv' \\
-$input_flags -i '${final_file}_stereo_enhanced.aac' \\
+$input_flags -i '${final_file}_stereo_adjusted.aac' \\
 $input_flags -i '${final_file}_subtitles-HI.ass' \\
 $input_flags -i '${final_file}_subtitles.ass' \\
 -map 0:0 -c:0 copy \\
