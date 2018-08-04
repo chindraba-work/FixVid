@@ -2,7 +2,7 @@
 
 ########################################################################
 #                                                                      #
-#  subtitles-text: extract subtitles from a souce and create ASS file  #
+#  build-video: build a new video from the extracted component files   #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
@@ -31,58 +31,80 @@
 ########################################################################
 
 #
-# Command script to extract the subtitles from a text-based file, such
-# as an SRT or ASS file, or from an existing video file, and save them
-# to a known named file for eventual inclusion in the finished product.
+# Command script to build a new video from the extracted, and modified
+# component files generated in earlier steps. This video is the final
+# product, without the proper filename. Since there is the potential to
+# make multiple source videos, and/or various versions of the subtitles
+# this script will require a separate launcher to handle the logic of
+# selecting the source files for each final version.
 #
-# Accepts four arguments:
-#     source_file     the name of the file with the subtitles in it
-#     source_stream   the stream index (zero-based) of the subtitles
-#     subtitle_label  the label for the subtitles, used in the metadata
-#     file_label      the <label> part of the generated file's name
+# Accepts no arguments:
 #
 # Reads fixvid.conf for:
-#     work_files      the prefix of filenames for work files
-#     video_title     added to the title metadata of the files
-#     timestamp       entered in the creation_time metadata for streams
+#         video_title   Name of the video
+#         work_files    Filename prefix for working files
 #
 # Displays the ffmpeg progress line while running amd the results of the
 # time command once finished.
 #
 # Generates 1 file:
-#     *_<label>.ass   The copied subtitles in Substation Alpha format
-#                     <label>
+#     *_codec_<video_label>.mkv  The newly created video.
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || exit 4;
+test -s fixvid.conf && . fixvid.conf || return 4;
 
-# Read the arguments. All are required.
-test -n "$1" && source_file="$1"    || exit 3;
-test -n "$2" && source_stream="$2"  || exit 3;
-test -n "$3" && subtitle_label="$3" || exit 3;
-test -n "$4" && file_label="$4"     || exit 3;
+# Set the proper codec for ffmpeg use from that supplied
+v_codec=${video_codec,,};
 
 # Set the output filename base
-subs_prefix="${work_files}_subs_$file_label";
+movie_prefix="${work_files}_full_${video_codec}_${video_label}";
 
 # Skip this if it has already been done.
-# To rerun, delete the created .ass file first
-if [ -s "${subs_prefix}.ass" ]; then
-  exit;
+# To rerun, delete the *_video.mkv file first
+if [ -s "${movie_prefix}.mkv" ]; then
+  return;
+fi
+
+video_file="${work_files}_video_${video_codec}_${video_label}.mkv";
+video_input="$input_flags -i $video_file";
+video_output="-map 0:0 -c:0 copy";
+video_data="-metadata:s:0 language=eng";
+video_data="$video_data -metadata:s:0 title='$video_title'";
+stereo_file="${work_files}_stereo_adjusted.aac";
+stereo_input="$input_flags -i $stereo_file";
+stereo_output="-map 1:0 -c:a copy";
+stereo_data="-metadata:s:1 language=eng";
+stereo_data="$stereo_data -metadata:s:1 title='Enhanced Stereo'";
+if [[ $subs_label ]]; then
+  subs_file="${work_files}_subs_${subs_label}.ass";
+  subs_input="$input_flags -i $subs_file";
+  subs_output="-map 2:0 -c:s copy";
+  subs_data="-metadata:s:2 language=eng"
+  subs_data="$subs_data -metadata:s:2 title='$subs_title'";
+else
+  subs_input="";
+  subs_output="";
+  subs_data="";
 fi
 
 # Set the filename base for the command and log files
-control_prefix="fixvid_${subs_prefix}";
+control_prefix="fixvid_${movie_prefix}";
 
-FFREPORT=file='$control_prefix.log':level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i "$source_file" \
--map 0:$source_stream \
-$strip_meta_all \
--metadata creation_time="$timestamp" \
--metadata language=eng -metadata title="$video_title" \
--metadata:s:0 language=eng -metadata:s:0 title="$subtitle_label" \
--c:0 ass \
-$subtitles_only $use_threads $output_flags \
-"$subs_prefix.ass";
+cat <<EOC >"$control_prefix.cmd";
+FFREPORT=file='$control_prefix.log':level=40 \\
+ffmpeg -hide_banner -loglevel error -stats -y \\
+$video_input $stereo_input $subs_input \\
+$video_output $stereo_output $subs_output \\
+$video_data $stereo_data $subs_data \\
+$strip_meta \\
+-metadata language=eng  -metadata title='$video_title' \\
+$use_threads $output_flags "${movie_prefix}.mkv";
+
+EOC
+
+# Make the newly created file executable
+chmod +x "$control_prefix.cmd";
+
+# Execute the just-made ffmpeg command
+time ./"$control_prefix.cmd";

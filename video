@@ -87,7 +87,7 @@ while [[ $continue ]]; do
     declare video_$item="${!var}";
   done
   # Do the video extraction for this group
-  source "$fixvid_dir/extract_video";
+  source "$fixvid_dir/extract-video";
   (( group_num++ ));
   # Check for completion
   [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;

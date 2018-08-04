@@ -41,8 +41,6 @@
 # Accepts no arguments:
 #
 # Reads fixvid.conf for:
-#       video_source
-#       video_stream
 #       work_files
 #       video_title
 #       enable_nvidia
