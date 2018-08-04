@@ -1,0 +1,64 @@
+#!/bin/bash
+
+#
+# Command script to launch extract_video with all the proper parameters
+# set. May launch the extraction multiple time if there are multiple
+# occurances of the video configuration variables.
+#
+# Accepts 1 optional argument:
+#     group_num   Which setting group to use in extraction.
+#                 A value of "0", or no argument, will cycle through
+#                 all the available groups, extracting a video for
+#                 each. Any other number will extract one video,
+#                 using the group number to determine which one to
+#                 use.
+#
+# Reads fixvid.conf for:
+#     video_label_n
+#     video_codec_n
+#     video_params_n
+#     video_equalizer_n     The eq video filter settings
+#     video_adjust_n
+#     video_complex_n
+#         where "n" is an integer number beginning at "1"
+#
+# Displays nothing.
+#
+# Generates 0 files:
+#
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || exit 4;
+
+# Read the optional argument.
+[[ $1 ]] && group_num=$1 || group_num=0;
+
+# Flag to process, or not, all setting groups
+[[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
+
+# Find the last valid group number
+group_limit=1;
+var="video_codec_$group_limit";
+while [[ ${!var} ]]; do
+  ((group_limit++));
+  var="video_codec_$group_limit";
+done;
+
+[[ 0 = $group_num ]] && group_num=1;
+
+# Set the continue flag based on the validity of requested group ID
+[[ $group_num < $group_limit ]] && continue=1 || unset continue;
+
+# Walk through the list of valid group IDs
+while [[ $continue ]]; do
+  # Load the group settings into the generic set for video extraction
+  for item in label codec params equalizer adjust complex; do
+    var="video_${item}_${group_num}";
+    declare video_$item="${!var}";
+  done
+  # Do the video extraction for this group
+  source "$fixvid_dir/extract_video";
+  (( group_num++ ));
+  # Check for completion
+  [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;
+done

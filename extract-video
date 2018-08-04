@@ -1,0 +1,95 @@
+#!/bin/bash
+
+#
+# Command script to extract the video component from the source file and
+# apply any adjustments to it while creating a video-only file for use
+# in building the final product. Because of the need to make multiple
+# versions of the video, for evaluation purposes, this will require a
+# separate launcher with the ability to discriminate the variables from
+# the config file and options from the command line.
+#
+# Accepts no arguments:
+#
+# Reads fixvid.conf for:
+#       video_source
+#       video_stream
+#       work_files
+#       video_title
+#       enable_nvidia
+#
+# Displays the ffmpeg progress line while running amd the results of the
+# time command once finished.
+#
+# Generates 1 file:
+#     *_video_codec_<v_label>.mkv  The recoded video from the source file
+#
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || return 4;
+
+# Set the proper codec for ffmpeg use from that supplied
+v_codec=${video_codec,,};
+[[ $enable_nvidia ]] && [[ $v_codec =~ hevc|h264 ]] && v_codec="${v_codec}_nvenc";
+
+# Set the output filename base
+video_prefix="${work_files}_video_${video_codec}_${video_label}";
+
+# Skip this if it has already been done.
+# To rerun, delete the *_video.mkv file first
+if [ -s "${video_prefix}.mkv" ]; then
+  return;
+fi
+
+# Set the filename base for the command and log files
+control_prefix="fixvid_${video_prefix}";
+
+# Build the video mapping and filter line
+# Always use the yadif 'yet another de-interlace filter' filter
+[[ $video_complex ]] \
+  && filter_line="-filter_complex '[0:$video_stream] yadif" \
+  || filter_line="-map 0:$video_stream -vf yadif";
+
+# Apply the equalizer settings, if any
+if [[ $video_equalizer ]]; then
+  [[ $video_complex ]] \
+    && filter_line="${filter_line} [VEQ];[VEQ] $video_equalizer" \
+    || filter_line="${filter_line},$video_equalizer";
+fi
+
+# Add in the other adjustments to the video, should be for setting the
+# size, sar (screen aspect ratio), dar (display aspect ratio), etc.,
+# but can also be used for more complex effects, including cropping and
+# letterbox formating, or removing old letterbox formating (cropping).
+if [[ $video_adjust ]]; then
+  [[ $video_complex ]] \
+    && filter_line="${filter_line} [VIN]; $video_adjust' -map [VOUT]" \
+    || filter_line="$filter_line,$v_adjust";
+fi
+
+# Create the commmand file, which will do the work. It uses the data in
+# the configuration file to "fill in the blanks" for the ffmpeg call
+#
+cat <<EOC > "$control_prefix.cmd"
+FFREPORT=file='$control_prefix.log':level=40 \\
+ffmpeg -hide_banner -y -loglevel error -stats \\
+-fflags +igndts -i '$video_source' \\
+$filter_line \\
+$strip_meta_all \\
+-metadata language=eng  -metadata title='$video_title' \\
+-metadata:s:0 language=eng -metadata:s:0 title='$video_title' \\
+-c:0 $v_codec $video_params \\
+$video_only $use_threads \\
+$output_flags "${video_prefix}.mkv";
+EOC
+
+# Make the newly created file executable
+chmod +x "$control_prefix.cmd";
+
+# Execute the just-made ffmpeg command
+time ./"$control_prefix.cmd";
+
+
+
+
+
+
