@@ -69,6 +69,19 @@ Available commands are:
         identified in the fixvid.conf file as the stereo source. Applies
         the enhancements to the stereo sound track and creates an .aac
         and .ac3 file of the original and the enhaced soundtracks.
+    video [<group_num>]
+        Extract the video from the file and stream indentified in the
+        fixvid.conf file. Will make multiple copies of the video if the
+        settings in the config file call for it. <group_num> is a number
+        from 1 to whatever, and corresponds to the video_?_x settings in
+        the config file. The numbers must begin at 1, and have no gaps
+        in the sequence. The first group of settings without a codec
+        cause the sequence to end prior to that number. If fixvid video
+        is called with an argument of zero, or no argument, then all the
+        versions will be extracted, otherwise only the version which
+        matches the argument will be built, if it is valid in the number
+        sequence.
+
 
 USAGE
 
