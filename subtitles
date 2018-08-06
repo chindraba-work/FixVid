@@ -2,7 +2,7 @@
 
 ########################################################################
 #                                                                      #
-#  subtitles-text: extract subtitles from a souce and create ASS file  #
+#  subtitles: script to create multiple subtitle versions              #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
@@ -31,55 +31,68 @@
 ########################################################################
 
 #
-# Command script to extract the subtitles from a text-based file, such
-# as an SRT or ASS file, or from an existing video file, and save them
-# to a known named file for eventual inclusion in the finished product.
-# Because of the need to make multiple versions of subtitles, this will
-# require a separate launcher with the ability to discriminate the
-# variables from the config file and options from the command line.
+# Command script to launch subtitle creation commands with all the
+# proper parameters set. May launch the extraction multiple time if
+# there are multiple occurrences of the configuration variables.
 #
-# Accepts no arguments:
+# Accepts 1 optional argument:
+#     group_num   Which setting group to use in extraction.
+#                 A value of "0", or no argument, will cycle through
+#                 all the available groups, creating subtitles for each.
+#                 Any other number will create one subtitle file using
+#                 the group number to determine which settings to use.
 #
 # Reads fixvid.conf for:
-#     work_files      the prefix of filenames for work files
-#     video_title     added to the title metadata of the files
-#     timestamp       entered in the creation_time metadata for streams
+#     subs_source_n
+#     subs_stream_n
+#     subs_label_n
+#     subs_title_n
+#     subs_type_n
+#     _n
+#         where "n" is an integer number beginning at "1"
 #
-# Displays the ffmpeg progress line while running amd the results of the
-# time command once finished.
+# Displays nothing.
 #
-# Generates 1 file:
-#     *_<label>.ass   The copied subtitles in Substation Alpha format
-#                     <label>
+# Generates 0 files:
 #
 
 # Load the configuration file
 test -s fixvid.conf && . fixvid.conf || exit 4;
 
+# Read the optional argument.
+[[ $1 ]] && group_num=$1 || group_num=0;
 
-# Set the output filename base
-subs_prefix="${work_files}_subs_$subs_label";
+# Flag to process, or not, all setting groups
+[[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
 
-# Skip this if it has already been done.
-# To rerun, delete the created .aac file first
-if [ -s "${subs_prefix}.ass" ]; then
-  exit;
-fi
+# Find the last valid group number
+group_limit=1;
+var="subs_source_$group_limit";
+while [[ ${!var} ]]; do
+  ((group_limit++));
+  var="subs_source_$group_limit";
+done;
 
-# Set the filename base for the command and log files
-control_prefix="fixvid_${subs_prefix}";
+[[ 0 = $group_num ]] && group_num=1;
 
-FFREPORT=file='$control_prefix.log':level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i "$subs_source" \
--map 0:$subs_stream \
-$strip_meta_all \
--metadata creation_time="$timestamp" \
--metadata language=eng -metadata title="$video_title" \
--metadata:s:0 language=eng -metadata:s:0 title="$subs_title" \
--c:0 ass \
-$subtitles_only $use_threads $output_flags \
-"$subs_prefix.ass";
+# Set the continue flag based on the validity of requested group ID
+[[ $group_num < $group_limit ]] && continue=1 || unset continue;
 
-
-### LOG FILE
+# Walk through the list of valid group IDs
+while [[ $continue ]]; do
+  # Load the group settings into the generic set for subtitle creation
+  for item in source stream label title type; do
+    var="subs_${item}_${group_num}";
+    declare subs_$item="${!var}";
+  done
+  # Do the subtitle creation for this group
+  # TODO
+  # Add conditional branches for different subtitle source types as they
+  # are needed or discoverd, along with the script to handle them.
+  if [[ 'text' == ${subs_type,,} ]]; then
+    source subtitles_text;
+  fi
+  (( group_num++ ));
+  # Check for completion
+  [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;
+done
