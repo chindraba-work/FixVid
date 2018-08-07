@@ -54,9 +54,6 @@
 # Load the configuration file
 test -s fixvid.conf && . fixvid.conf || return 4;
 
-# Set the proper codec for ffmpeg use from that supplied
-v_codec=${video_codec,,};
-
 # Set the output filename base
 movie_prefix="${work_files}_full_${video_codec}_${video_label}";
 
@@ -66,27 +63,82 @@ if [ -s "${movie_prefix}.mkv" ]; then
   return;
 fi
 
-video_file="${work_files}_video_${video_codec}_${video_label}.mkv";
-video_input="$input_flags -i $video_file";
-video_output="-map 0:0 -c:0 copy";
-video_data="-metadata:s:0 language=eng";
-video_data="$video_data -metadata:s:0 title='$video_title'";
-stereo_file="${work_files}_stereo_adjusted.aac";
-stereo_input="$input_flags -i $stereo_file";
-stereo_output="-map 1:0 -c:a copy";
-stereo_data="-metadata:s:1 language=eng";
-stereo_data="$stereo_data -metadata:s:1 title='Enhanced Stereo'";
-if [[ $subs_label ]]; then
-  subs_file="${work_files}_subs_${subs_label}.ass";
-  subs_input="$input_flags -i $subs_file";
-  subs_output="-map 2:0 -c:s copy";
-  subs_data="-metadata:s:2 language=eng"
-  subs_data="$subs_data -metadata:s:2 title='$subs_title'";
-else
-  subs_input="";
-  subs_output="";
-  subs_data="";
+# Add the video component (always available)
+source_list="$input_flags -i \
+'${work_files}_video_${video_codec}_${video_label}.mkv'";
+stream_list="-map $source_count:0 -c:$stream_count copy \\
+-metadata:s:$stream_count language=eng \
+-metadata:s:$stream_count title='$video_title' \\
+-disposition:$stream_count +default";
+source_count=$((++source_count));
+stream_count=$((++stream_count));
+
+# Add the enhanced stereo component (always available)
+source_list="$source_list \\
+$input_flags -i '${work_files}_stereo_adjusted.aac'";
+stream_list="$stream_list \\
+-map $source_count:0 -c:$stream_count copy \\
+-metadata:s:$stream_count language=eng \
+-metadata:s:$stream_count title='Stereo' \\
+-disposition:s:$stream_count default";
+source_count=$((++source_count));
+stream_count=$((++stream_count));
+
+# Add in the subtitles
+# All versions get all available subtitle streams
+unset subs_default;
+subs_group=1;
+check_var="subs_source_$subs_group";
+while [[ ${!check_var} ]]; do
+  for item in label title included SDH; do
+    param_var="subs_${item}_${subs_group}";
+    declare subs_$item="${!param_var}";
+  done
+  if [[ $subs_included ]]; then
+    source_list="$source_list \\
+    $input_flags -i '${work_files}_subs_${subs_label}.ass'";
+    stream_list="$stream_list \\
+    -map $source_count:0 -c:$stream_count copy \\
+    -metadata:s:$stream_count language=eng \
+    -metadata:s:$stream_count title='$subs_title'";
+    if [[ $subs_SDH ]]; then
+      stream_list="$stream_list \\
+      -disposition:$stream_count hearing_impaired";
+    fi
+    if [[ $subs_default ]]; then
+      stream_list="$stream_list \\
+      -disposition:$stream_count -default";
+    else
+      stream_list="$stream_list \\
+      -disposition:$stream_count +default";
+      subs_default=$ubs_group;
+    fi
+    source_count=$((++source_count));
+    stream_count=$((++stream_count));
+  fi
+  ((subs_group++));
+  check_var="subs_source_$subs_group";
+done
+
+# Add the chapter source file, if any
+if [[ $chapter_file ]] && [[ -s $chapter_file ]]; then
+  source_list="$source_list \\
+  -i '$chapter_file'";
+  stream_list="$stream_list \\
+  -map_chapters $source_count";
+  source_count=$((++source_count));
+  stream_count=$((++stream_count));
 fi
+
+cat <<EOCMD > "$cmd_file";
+FFREPORT=file=${log_file}:level=40 \\
+ffmpeg -hide_banner -loglevel quiet -stats -y \\
+$source_list \\
+$stream_list \\
+-metadata creation_time=$timestamp \\
+-metadata title='$title' \\
+$use_threads $output_flags "${movie_prefix}.mkv";
+EOCMD
 
 # Set the filename base for the command and log files
 control_prefix="fixvid_${movie_prefix}";
@@ -104,7 +156,9 @@ $use_threads $output_flags "${movie_prefix}.mkv";
 EOC
 
 # Make the newly created file executable
-chmod +x "$control_prefix.cmd";
+# chmod +x "$control_prefix.cmd";
 
 # Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
+# time ./"$control_prefix.cmd";
+
+cat "$control_prefix.cmd";
