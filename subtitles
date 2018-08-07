@@ -90,7 +90,7 @@ while [[ $continue ]]; do
   # Add conditional branches for different subtitle source types as they
   # are needed or discoverd, along with the script to handle them.
   if [[ 'text' == ${subs_type,,} ]]; then
-    source subtitles_text;
+    source "$fixvid_dir/subtitles-text";
   fi
   (( group_num++ ));
   # Check for completion

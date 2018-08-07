@@ -35,14 +35,14 @@
 
 # Name used as the prefix for work files
 #
-# !! The string in _mostly_ safe, but will break on apostrophes
+# !! The string in _mostly_ safe, but will break ffmpeg on apostrophes
 # Still, it's better to keep things "shell-safe"
 #
 work_files='';
 
 # Name used as the prefix for the final product files
 #
-# !! The string in _mostly_ safe, but will break on apostrophes
+# !! The string in _mostly_ safe, but will break ffmpeg on apostrophes
 # Still, it's better to keep things _shell-safe_
 #
 final_files='';
@@ -52,15 +52,28 @@ video_year='';
 
 # Name of the video that is stored in the meta data of the files.
 #
-# !! The string in _mostly_ safe, but will break on apostrophes
+# !! The string in _mostly_ safe, but will break ffmpeg on apostrophes
 #
 video_title='';
+
+#
+# Chapter titles are a special case. Chapter information is embedded in
+# the container rather than the stream(s). The process of creating the
+# component files is designed to strip out all the meta data from the
+# streams, and the chapter titles are "lost" in the process. So many of
+# the videos encountered so far have had meaningless 'title' for the
+# chapters. Either the chapter number, or the chapter start time, is the
+# common 'title,' and loosing those is of no consequence. Attempting to
+# preserve the title in the processing turns out to be more work than to
+# just add them back into the final product, when they exist.
+#
+# Name of the file that has useful chapter data. Leave commented if none
+# chapter_file='';
 
 ########################################################################
 #
 #                        Video component settings
-#
-#  File that has the video to use as the source for the final product
+# File that has the video to use as the source for the final product
 video_source='';
 video_stream=0;
 
@@ -107,12 +120,12 @@ video_equalizer_1='eq=contrast=1.12:brightness=0.18';
 # set of variables above, replacing the digit "1" with "2", and so on.
 # The program will look for each, in sequence, and stop on the first one
 # not found: group 3 will be ignored unless there is a group 2, etc.
-video_label_2="TVHD";
-video_codec_2='H264';
-video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high";
-video_equalizer_2='eq=contrast=1.12:brightness=0.18';
-video_adjust_2='scale=1920x796,setsar=1/1';
-video_complex_2="1";
+# video_label_2='';
+# video_codec_2='';
+# video_params_2="";
+# video_equalizer_2='';
+# video_adjust_2='';
+# video_complex_2="";
 
 ########################################################################
 #
@@ -179,6 +192,14 @@ subs_title_1='Hearing-Impaired';
 # What type of subtitles the souce file contains. Text is for SRT, AAS,
 # and ASS.
 subs_type_1='text';
+# Are these subtitles to be included in the final product video?
+# Leave commented to prevent them from being included.
+subs_included_1='1';
+# Setting to show that this is a 'Hearing-Impaired' subtitle stream.
+# Not required, but having it set will allow the stream to be marked as
+# Hearing-Impaired in the final product in the event that a player is
+# set up to always choose such subtitles over other defaults.
+subs_SDH_1='1';
 
 # Additional sets of subtitles may be created by using increasing
 # numbers for each set of parameters. All parameters are needed for the
@@ -188,6 +209,8 @@ subs_type_1='text';
 # subs_label_2='DEFAULT';
 # subs_title_2='Standard Subtitles';
 # subs_type_2='text';
+# subs_included_2='1';
+# subs_SDH_2='1';
 
 
 timestamp='1993-08-13T13:07:08.69Z';
