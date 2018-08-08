@@ -1,0 +1,70 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  rebuild: control building of multiple new videos using build-video  #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+# Load the configuration file
+test -s fixvid.conf && . fixvid.conf || exit 4;
+
+# Check for audio source
+[[ -s "${work_files}_stereo_adjusted.aac" ]] || exit 4;
+
+# Read the optional argument.
+[[ $1 ]] && video_group=$1 || video_group=0;
+
+# Flag to process, or not, all setting groups
+[[ 0 = $video_group ]] && all_groups=1 || unset all_groups;
+
+# Find the last valid group number
+group_limit=1;
+var="video_codec_$group_limit";
+while [[ ${!var} ]]; do
+  ((group_limit++));
+  var="video_codec_$group_limit";
+done;
+
+[[ 0 = $video_group ]] && video_group=1;
+
+# Set the continue flag based on the validity of requested group ID
+[[ $video_group < $group_limit ]] && continue=1 || unset continue;
+
+# Walk through the list of valid group IDs
+while [[ $continue ]]; do
+  # Load the group settings into the generic set for video extraction
+  for item in label codec; do
+    var="video_${item}_${video_group}";
+    declare video_$item="${!var}";
+  done
+  # Do the rebuilding of one video
+  source "$fixvid_dir/build-video";
+  (( video_group++ ));
+  # Check for completion
+  [[ $all_groups ]] && [[ $video_group < $group_limit ]] && continue=1 || unset continue;
+done

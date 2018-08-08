@@ -41,8 +41,13 @@
 # Accepts no arguments:
 #
 # Reads fixvid.conf for:
-#         video_title   Name of the video
-#         work_files    Filename prefix for working files
+#         video_title       Name of the video
+#         work_files        Filename prefix for working files
+#         chapter_file      The file with chapter titles, if any
+#         subs_label_n      The filename for subtitle group n
+#         subs_title_n      The metadata title for subtitle group n
+#         subs_included_n   If subtitle group n is embeded in the video
+#         subs_SDH_n        If subtitle group n is for Hearing-Impaired
 #
 # Displays the ffmpeg progress line while running amd the results of the
 # time command once finished.
@@ -60,7 +65,7 @@ movie_prefix="${work_files}_full_${video_codec}_${video_label}";
 # Skip this if it has already been done.
 # To rerun, delete the *_video.mkv file first
 if [ -s "${movie_prefix}.mkv" ]; then
-  return;
+  return 4;
 fi
 
 # Add the video component (always available)
@@ -111,7 +116,7 @@ while [[ ${!check_var} ]]; do
     else
       stream_list="$stream_list \\
       -disposition:$stream_count +default";
-      subs_default=$ubs_group;
+      subs_default=$subs_group;
     fi
     source_count=$((++source_count));
     stream_count=$((++stream_count));
@@ -130,35 +135,28 @@ if [[ $chapter_file ]] && [[ -s $chapter_file ]]; then
   stream_count=$((++stream_count));
 fi
 
-cat <<EOCMD > "$cmd_file";
-FFREPORT=file=${log_file}:level=40 \\
-ffmpeg -hide_banner -loglevel quiet -stats -y \\
-$source_list \\
-$stream_list \\
--metadata creation_time=$timestamp \\
--metadata title='$title' \\
-$use_threads $output_flags "${movie_prefix}.mkv";
-EOCMD
+# Set the filename base for the command and log files
+control_prefix="fixvid_${movie_prefix}";
+
+# Create the commmand file, which will do the work. It uses the data in
+# the configuration file to "fill in the blanks" for the ffmpeg call
+#
 
 # Set the filename base for the command and log files
 control_prefix="fixvid_${movie_prefix}";
 
 cat <<EOC >"$control_prefix.cmd";
 FFREPORT=file='$control_prefix.log':level=40 \\
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$video_input $stereo_input $subs_input \\
-$video_output $stereo_output $subs_output \\
-$video_data $stereo_data $subs_data \\
-$strip_meta \\
--metadata language=eng  -metadata title='$video_title' \\
+ffmpeg -hide_banner -loglevel quiet -stats -y \\
+$source_list \\
+$stream_list \\
+-metadata creation_time=$timestamp \\
+-metadata title='$title' \\
 $use_threads $output_flags "${movie_prefix}.mkv";
-
 EOC
 
 # Make the newly created file executable
-# chmod +x "$control_prefix.cmd";
+chmod +x "$control_prefix.cmd";
 
 # Execute the just-made ffmpeg command
-# time ./"$control_prefix.cmd";
-
-cat "$control_prefix.cmd";
+time ./"$control_prefix.cmd";

@@ -91,7 +91,7 @@ Available commands are:
         results are displayed, and recorded in the fixvid.scan file.
 
     subtitles [<group_num>]
-        Create a subtitles file from the file and stream identified in
+        Create subtitle files from the files and streams identified in
         the fixvid.conf file. Will make multiple versions of the
         subtitles if the settings in the config file call for it.
         <group_num> is a number from 1 to whatever, and corresponds to
@@ -102,6 +102,19 @@ Available commands are:
         of zero, or no argument, then all the versions will be created,
         otherwise only the version which matches the argument will be
         built, if it is valid in the number sequence.
+
+    rebuild [<group_num>]
+        Create video files from the files and streams identified in the
+        fixvid.conf file. Will make multiple versions of the video if
+        the settings in the config file call for it. <group_num> is a
+        number from 1 to whatever, and corresponds to the video_?_x
+        settings in the config file. The numbers must begin at 1, and
+        have no gaps in the sequence. The first group of settings
+        without a codec will cause the sequence to end prior to that
+        number. If fixvid rebuild is called with an argument of zero, or
+        no argument, then all the versions will be created, otherwise
+        only the version which matches the argument will be built, if it
+        is valid in the number sequence.
 
     stereo
         Extract the stereo sound track from the file and stream
