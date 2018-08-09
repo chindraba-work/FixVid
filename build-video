@@ -68,19 +68,24 @@ if [ -s "${movie_prefix}.mkv" ]; then
   return 4;
 fi
 
+# Make sure our counters and flags are cleared before use
+unset source_count;
+unset stream_count;
+unset subs_default;
+
 # Add the video component (always available)
 source_list="$input_flags -i \
-'${work_files}_video_${video_codec}_${video_label}.mkv'";
-stream_list="-map $source_count:0 -c:$stream_count copy \\
+\"${work_files}_video_${video_codec}_${video_label}.mkv\"";
+stream_list="-map $source_count:0 -c:$stream_count copy \
 -metadata:s:$stream_count language=eng \
--metadata:s:$stream_count title='$video_title' \\
+-metadata:s:$stream_count title=\"$video_title\" \
 -disposition:$stream_count +default";
 source_count=$((++source_count));
 stream_count=$((++stream_count));
 
 # Add the enhanced stereo component (always available)
-source_list="$source_list \\
-$input_flags -i '${work_files}_stereo_adjusted.aac'";
+source_list="$source_list \
+$input_flags -i \"${work_files}_stereo_adjusted.aac\"";
 stream_list="$stream_list \\
 -map $source_count:0 -c:$stream_count copy \\
 -metadata:s:$stream_count language=eng \
@@ -91,7 +96,6 @@ stream_count=$((++stream_count));
 
 # Add in the subtitles
 # All versions get all available subtitle streams
-unset subs_default;
 subs_group=1;
 check_var="subs_source_$subs_group";
 while [[ ${!check_var} ]]; do
@@ -100,21 +104,21 @@ while [[ ${!check_var} ]]; do
     declare subs_$item="${!param_var}";
   done
   if [[ $subs_included ]]; then
-    source_list="$source_list \\
-    $input_flags -i '${work_files}_subs_${subs_label}.ass'";
-    stream_list="$stream_list \\
-    -map $source_count:0 -c:$stream_count copy \\
+    source_list="$source_list \
+    $input_flags -i \"${work_files}_subs_${subs_label}.ass\"";
+    stream_list="$stream_list \
+    -map $source_count:0 -c:$stream_count copy \
     -metadata:s:$stream_count language=eng \
-    -metadata:s:$stream_count title='$subs_title'";
+    -metadata:s:$stream_count title=\"$subs_title\"";
     if [[ $subs_SDH ]]; then
-      stream_list="$stream_list \\
+      stream_list="$stream_list \
       -disposition:$stream_count hearing_impaired";
     fi
     if [[ $subs_default ]]; then
-      stream_list="$stream_list \\
+      stream_list="$stream_list \
       -disposition:$stream_count -default";
     else
-      stream_list="$stream_list \\
+      stream_list="$stream_list \
       -disposition:$stream_count +default";
       subs_default=$subs_group;
     fi
@@ -127,36 +131,17 @@ done
 
 # Add the chapter source file, if any
 if [[ $chapter_file ]] && [[ -s $chapter_file ]]; then
-  source_list="$source_list \\
-  -i '$chapter_file'";
+  source_list="$source_list \
+  -i \"$chapter_file\"";
   stream_list="$stream_list \\
   -map_chapters $source_count";
   source_count=$((++source_count));
   stream_count=$((++stream_count));
 fi
 
-# Set the filename base for the command and log files
-control_prefix="fixvid_${movie_prefix}";
-
-# Create the commmand file, which will do the work. It uses the data in
-# the configuration file to "fill in the blanks" for the ffmpeg call
-#
-
-# Set the filename base for the command and log files
-control_prefix="fixvid_${movie_prefix}";
-
-cat <<EOC >"$control_prefix.cmd";
-FFREPORT=file='$control_prefix.log':level=40 \\
-ffmpeg -hide_banner -loglevel quiet -stats -y \\
-$source_list \\
-$stream_list \\
--metadata creation_time=$timestamp \\
--metadata title='$title' \\
-$use_threads $output_flags "${movie_prefix}.mkv";
-EOC
-
-# Make the newly created file executable
-chmod +x "$control_prefix.cmd";
-
-# Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
+time bash -c "FFREPORT=file='fixvid_${movie_prefix}.log':level=40 \
+ffmpeg -hide_banner -loglevel quiet -stats -y \
+$source_list \
+$stream_list \
+$file_meta -metadata description=\"Chindraba Enhanced\" \
+$use_threads $output_flags \"${movie_prefix}.mkv\"";

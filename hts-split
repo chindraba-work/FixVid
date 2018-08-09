@@ -83,83 +83,58 @@ if [ -s "${surround_prefix}_fc.wav" ]; then
   exit;
 fi
 
-# Set the filename base for the command and log files
-control_prefix="fixvid_${surround_prefix}_split";
-
-# Create the commmand file, which will do the work. It uses the data in
-# the configuration file to "fill in the blanks" for the ffmpeg call
-#
-
-cat <<EOC > "$control_prefix.cmd"
-FFREPORT=file='$control_prefix.log':level=40 \\
-ffmpeg -hide_banner -y -loglevel error -stats \\
--fflags +igndts -i '$surround_source' \\
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}_split.log\":level=40 \
+ffmpeg -hide_banner -y -loglevel error -stats \
+$input_flags -i \"$surround_source\" \\
 -filter_complex '\
 [0:$surround_stream] asplit=3 [CHANNELS][INTERNAL][EXTERNAL];\
 [CHANNELS] channelsplit=channel_layout=$surround_layout [FL][FR][FC][LF][SL][SR]\
-' \\
--map [FC] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="Center Front Channel" \\
--c:0 pcm_s16le -b:a 384k \\
-'${surround_prefix}_fc.wav' \\
--map [FL] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="Left Front Channel" \\
--c:0 pcm_s16le -b:a 384k \\
-'${surround_prefix}_fl.wav' \\
--map [FR] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="Right Front Channel" \\
--c:0 pcm_s16le -b:a 384k \\
-'${surround_prefix}_fr.wav' \\
--map [LF] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="Low-frequency Channel" \\
--c:0 pcm_s16le -b:a 384k \\
-'${surround_prefix}_lf.wav' \\
--map [SL] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="Left Surround Channel" \\
--c:0 pcm_s16le -b:a 384k \\
-'${surround_prefix}_sl.wav' \\
--map [SR] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="Right Surround Channel" \\
--c:0 pcm_s16le -b:a 384k \\
-'${surround_prefix}_sr.wav' \\
--map [EXTERNAL] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="5.1 Surround" \\
--c:0 ac3 -b:a 640k \\
--threads 64 -fflags +genpts \\
-"${surround_prefix}.ac3" \\
--map [INTERNAL] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="5.1 Surround" \\
--c:0 libfdk_aac -profile:a aac_he -b:a 384k \\
--threads 64 -fflags +genpts \\
-"${surround_prefix}.aac";
-EOC
-
-# Make the newly created file executable
-chmod +x "$control_prefix.cmd";
-
-# Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
+' \
+-map [FC] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Center Front Channel' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}_fc.wav\" \
+-map [FL] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Left Front Channel' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}_fl.wav\" \
+-map [FR] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Right Front Channel' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}_fr.wav\" \
+-map [LF] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Low-frequency Channel' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}_lf.wav\" \
+-map [SL] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Left Surround Channel' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}_sl.wav\" \
+-map [SR] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Right Surround Channel' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}_sr.wav\" \
+-map [EXTERNAL] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='5.1 Surround' \
+-c:0 ac3 -b:a 640k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}.ac3\" \
+-map [INTERNAL] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='5.1 Surround' \
+-c:0 libfdk_aac -profile:a aac_he -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${surround_prefix}.aac\"";

@@ -68,20 +68,17 @@ if [ -s "${video_prefix}.mkv" ]; then
   return;
 fi
 
-# Set the filename base for the command and log files
-control_prefix="fixvid_${video_prefix}";
-
-# Build the video mapping and filter line
+# Build the video mapping and filter lines
 # Always use the yadif 'yet another de-interlace filter' filter
 [[ $video_complex ]] \
-  && filter_line="-filter_complex '[0:$video_stream] yadif" \
-  || filter_line="-map 0:$video_stream -vf yadif";
+  && map_line="-filter_complex '[0:$video_stream] yadif" \
+  || map_line="-map 0:$video_stream -vf 'yadif";
 
 # Apply the equalizer settings, if any
 if [[ $video_equalizer ]]; then
   [[ $video_complex ]] \
-    && filter_line="${filter_line} [VEQ];[VEQ] $video_equalizer" \
-    || filter_line="${filter_line},$video_equalizer";
+    && map_line="${map_line} [VEQ];[VEQ] $video_equalizer" \
+    || map_line="${map_line},$video_equalizer";
 fi
 
 # Add in the other adjustments to the video, should be for setting the
@@ -90,34 +87,20 @@ fi
 # letterbox formating, or removing old letterbox formating (cropping).
 if [[ $video_adjust ]]; then
   [[ $video_complex ]] \
-    && filter_line="${filter_line} [VIN]; $video_adjust' -map [VOUT]" \
-    || filter_line="$filter_line,$v_adjust";
+    && map_line="${map_line} [VIN]; $video_adjust" \
+    || map_line="$map_line,$video_adjust";
 fi
 
-# Create the commmand file, which will do the work. It uses the data in
-# the configuration file to "fill in the blanks" for the ffmpeg call
-#
-cat <<EOC > "$control_prefix.cmd"
-FFREPORT=file='$control_prefix.log':level=40 \\
-ffmpeg -hide_banner -y -loglevel error -stats \\
--fflags +igndts -i '$video_source' \\
-$filter_line \\
-$strip_meta_all \\
--metadata language=eng  -metadata title='$video_title' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title' \\
--c:0 $v_codec $video_params \\
-$video_only $use_threads \\
-$output_flags "${video_prefix}.mkv";
-EOC
+[[ $video_complex ]] \
+  && map_line="${map_line} [VOUT]' -map [VOUT]" \
+  || map_line="${map_line}'";
 
-# Make the newly created file executable
-chmod +x "$control_prefix.cmd";
-
-# Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
-
-
-
-
-
-
+time bash -c "FFREPORT=file=\"fixvid_${video_prefix}.log\":level=40 \
+ffmpeg -hide_banner -y -loglevel error -stats \
+$input_flags -i \"$video_source\" \
+$map_line \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title=\"$video_title\" \
+-c:0 $v_codec $video_params \
+$video_only $use_threads $output_flags \
+\"${video_prefix}.mkv\"";

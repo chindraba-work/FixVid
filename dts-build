@@ -69,38 +69,19 @@ if [ ! -s ${surround_prefix}.ac3 ] || [ ! -s ${surround_prefix}_adjusted.ac3 ]; 
   exit;
 fi
 
-# Set the filename base for the command and log files
-control_prefix="fixvid_${surround_prefix}";
-
-# Create the commmand file, which will do the work. It uses the data in
-# the configuration file to "fill in the blanks" for the ffmpeg call
-#
-
-cat <<EOC > "$control_prefix.cmd"
-FFREPORT=file='$control_prefix.log':level=40 \\
-ffmpeg -hide_banner -y -loglevel error -stats \\
--fflags +igndts -i '${surround_prefix}.ac3' \\
--fflags +igndts -i '${surround_prefix}_adjusted.ac3' \\
--map 0:0 \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title='$video_title' \\
--metadata:s:0 language=eng -metadata:s:0 title='Surround Sound' \\
--c:0 dts -b:a 768k -strict -2 \\
--threads 64 -fflags +genpts \\
-'${surround_prefix}.dts' \\
--map 1:0 \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title='$video_title' \\
--metadata:s:0 language=eng -metadata:s:0 title='Surround Sound (Enhanced)' \\
--c:0 dts -b:a 768k -strict -2 \\
--threads 64 -fflags +genpts \\
-'${surround_prefix}_adjusted.dts';
-EOC
-
-# Make the newly created file executable
-chmod +x "$control_prefix.cmd";
-
-# Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.log\":level=40 \
+ffmpeg -hide_banner -y -loglevel error -stats \
+$input_flags -i '${surround_prefix}.ac3' \
+$input_flags -i '${surround_prefix}_adjusted.ac3' \
+-map 0:0 \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Surround Sound' \
+-c:0 dts -b:a 768k -strict -2 \
+$use_threads $output_flags \
+\"${surround_prefix}.dts\" \
+-map 1:0 \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Surround Sound (Enhanced)' \
+-c:0 dts -b:a 768k -strict -2 \
+$use_threads $output_flags \
+\"${surround_prefix}_adjusted.dts\"";

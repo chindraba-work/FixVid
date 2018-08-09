@@ -98,60 +98,64 @@ if \
     fixvid "hts-split";
 fi
 
-cat <<EOC > "$control_prefix.cmd"
-FFREPORT=file='$control_prefix.part':level=40 \\
-ffmpeg -hide_banner -loglevel error -stats -y \\
--fflags +igndts -i ${surround_prefix}_fc.wav \\
--map 0:0 -af "$dyna_center" \\
--c:0 pcm_s16le -b:a 384k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_efc.wav;
-cat "$control_prefix.part" > $control_prefix.log;
-FFREPORT=file='$control_prefix.part':level=40 \\
-ffmpeg -hide_banner -loglevel error -stats -y \\
--fflags +igndts -i ${surround_prefix}_fl.wav \\
--map 0:0 -af "$dyna_front" \\
--c:0 pcm_s16le -b:a 384k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_efl.wav;
-cat "$control_prefix.part" >> $control_prefix.log;
-FFREPORT=file='$control_prefix.part':level=40 \\
-ffmpeg -hide_banner -loglevel error -stats -y \\
--fflags +igndts -i ${surround_prefix}_fr.wav \\
--map 0:0 -af "$dyna_front" \\
--c:0 pcm_s16le -b:a 384k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_efr.wav;
-cat "$control_prefix.part" >> $control_prefix.log;
-FFREPORT=file='$control_prefix.part':level=40 \\
-ffmpeg -hide_banner -loglevel error -stats -y \\
--fflags +igndts -i ${surround_prefix}_lf.wav \\
--map 0:0 -af "$dyna_surround" \\
--c:0 pcm_s16le -b:a 384k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_elf.wav;
-cat "$control_prefix.part" >> $control_prefix.log;
-FFREPORT=file='$control_prefix.part':level=40 \\
-ffmpeg -hide_banner -loglevel error -stats -y \\
--fflags +igndts -i ${surround_prefix}_sl.wav \\
--map 0:0 -af "$dyna_surround" \\
--c:0 pcm_s16le -b:a 384k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_esl.wav;
-cat "$control_prefix.part" >> $control_prefix.log;
-FFREPORT=file='$control_prefix.part':level=40 \\
-ffmpeg -hide_banner -loglevel error -stats -y \\
--fflags +igndts -i ${surround_prefix}_sr.wav \\
--map 0:0 -af "$dyna_surround" \\
--c:0 pcm_s16le -b:a 384k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_esr.wav;
-cat "$control_prefix.part" >> $control_prefix.log;
-rm -f "$control_prefix.part"
-EOC
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+ffmpeg -hide_banner -loglevel error -stats -y \
+$input_flags -i \"${surround_prefix}_fc.wav\" \
+-map 0:0 -af \"$dyna_center\" \
+-c:0 pcm_s16le -b:a 384k \
+$use_threads $output_flags \
+\"${surround_prefix}_efc.wav\"";
 
-# Make the newly created file executable
-chmod +x "$control_prefix.cmd";
+cat "fixvid_${surround_prefix}.part" > "fixvid_${surround_prefix}.log";
 
-# Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+ffmpeg -hide_banner -loglevel error -stats -y \
+$input_flags -i \"${surround_prefix}_fl.wav\" \
+-map 0:0 -af \"$dyna_front\" \
+-c:0 pcm_s16le -b:a 384k \
+$use_threads $output_flags \
+\"${surround_prefix}_efl.wav\"";
+
+cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+ffmpeg -hide_banner -loglevel error -stats -y \
+$input_flags -i \"${surround_prefix}_fr.wav\" \
+-map 0:0 -af \"$dyna_front\" \
+-c:0 pcm_s16le -b:a 384k \
+$use_threads $output_flags \
+\"${surround_prefix}_efr.wav\"";
+
+cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+ffmpeg -hide_banner -loglevel error -stats -y \
+$input_flags -i \"${surround_prefix}_lf.wav\" \
+-map 0:0 -af \"$dyna_surround\" \
+-c:0 pcm_s16le -b:a 384k \
+$use_threads $output_flags \
+\"${surround_prefix}_elf.wav\"";
+
+cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+ffmpeg -hide_banner -loglevel error -stats -y \
+$input_flags -i \"${surround_prefix}_sl.wav\" \
+-map 0:0 -af \"$dyna_surround\" \
+-c:0 pcm_s16le -b:a 384k \
+$use_threads $output_flags \
+\"${surround_prefix}_esl.wav\"";
+
+cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+
+time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+ffmpeg -hide_banner -loglevel error -stats -y \
+$input_flags -i \"${surround_prefix}_sr.wav\" \
+-map 0:0 -af \"$dyna_surround\" \
+-c:0 pcm_s16le -b:a 384k \
+$use_threads $output_flags \
+\"${surround_prefix}_esr.wav\"";
+
+cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+
+rm -f "fixvid_${surround_prefix}.part"

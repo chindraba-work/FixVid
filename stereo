@@ -86,58 +86,47 @@ if [ -s "${stereo_prefix}_adjusted.aac" ]; then
   exit;
 fi
 
-# Set the filename base for the command and log files
-control_prefix="fixvid_${stereo_prefix}";
-
-# Create the commmand file, which will do the work. It uses the data in
-# the configuration file to "fill in the blanks" for the ffmpeg call
-#
-
-cat <<EOC > "$control_prefix.cmd"
-FFREPORT=file='$control_prefix.log':level=40 \\
-ffmpeg -hide_banner -y -loglevel error -stats \\
--fflags +igndts -i '$stereo_source' \\
+time bash -c "FFREPORT=file=\"fixvid_${stereo_prefix}.log\":level=40 \
+ffmpeg -hide_banner -y -loglevel error -stats \
+$input_flags -i \"$stereo_source\" \
 -filter_complex '\
-  [0:$stereo_stream] asplit=3 [AAC][AC3][IN];\
+  [0:$stereo_stream] asplit=4 [AAC][AC3][WAV][IN];\
   [IN] $dyna_stereo [NORM];\
-  [NORM] asplit [AACe][AC3e]\
-' \\
--map [AAC] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title='$video_title' \\
--metadata:s:0 language=eng -metadata:s:0 title='Stereo' \\
--c:0 libfdk_aac -profile:a aac_he -b:a 128k \\
--threads 64 -fflags +genpts \\
-'${stereo_prefix}.aac' \\
--map [AC3] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title='$video_title' \\
--metadata:s:0 language=eng -metadata:s:0 title='Stereo' \\
--c:0 ac3 -b:a 192k \\
--threads 64 -fflags +genpts \\
-'${stereo_prefix}.ac3' \\
--map [AACe] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title='$video_title' \\
--metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \\
--c:0 libfdk_aac -profile:a aac_he -b:a 128k \\
--threads 64 -fflags +genpts \\
-'${stereo_prefix}_adjusted.aac' \\
--map [AC3e] \\
--map_metadata -1 -map_chapters -1 \\
--metadata creation_time=$timestamp \\
--metadata language=eng -metadata title='$video_title' \\
--metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \\
--c:0 ac3 -b:a 192k \\
--threads 64 -fflags +genpts \\
-'${stereo_prefix}_adjusted.ac3';
-EOC
-
-# Make the newly created file executable
-chmod +x "$control_prefix.cmd";
-
-# Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
+  [NORM] asplit=3 [AACe][AC3e][WAVe]\
+' \
+-map [AAC] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Stereo' \
+-c:0 libfdk_aac -profile:a aac_he -b:a 128k \
+$audio_only $use_threads $output_flags \
+\"${stereo_prefix}.aac\" \
+-map [AC3] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Stereo' \
+-c:0 ac3 -b:a 192k \
+$audio_only $use_threads $output_flags \
+\"${stereo_prefix}.ac3\" \
+-map [WAV] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Stereo' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${stereo_prefix}.wav\" \
+-map [AACe] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
+-c:0 libfdk_aac -profile:a aac_he -b:a 128k \
+$audio_only $use_threads $output_flags \
+\"${stereo_prefix}_adjusted.aac\" \
+-map [AC3e] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
+-c:0 ac3 -b:a 192k \
+$audio_only $use_threads $output_flags \
+\"${stereo_prefix}_adjusted.ac3\" \
+-map [WAVe] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
+-c:0 pcm_s16le -b:a 384k \
+$audio_only $use_threads $output_flags \
+\"${stereo_prefix}_adjusted.wav\"";

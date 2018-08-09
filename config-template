@@ -33,28 +33,18 @@
 
 # This file is copied, as fixvid.conf, into the working directory
 
-# Name used as the prefix for work files
-#
-# !! The string in _mostly_ safe, but will break ffmpeg on apostrophes
-# Still, it's better to keep things "shell-safe"
-#
-work_files='';
+# Name used as the prefix for work files, use shell-safe names
+work_files="";
 
-# Name used as the prefix for the final product files
-#
-# !! The string in _mostly_ safe, but will break ffmpeg on apostrophes
-# Still, it's better to keep things _shell-safe_
-#
-final_files='';
+# Name used as the prefix for the final product files, stay shell-safe
+final_files="";
 
 # Year the video was produced/released
 video_year='';
 
 # Name of the video that is stored in the meta data of the files.
-#
-# !! The string in _mostly_ safe, but will break ffmpeg on apostrophes
-#
-video_title='';
+# To use a double quote in the title use triple-escape, \\\"
+video_title="";
 
 #
 # Chapter titles are a special case. Chapter information is embedded in
@@ -113,6 +103,9 @@ video_equalizer_1='eq=contrast=1.12:brightness=0.18';
 # should be no single quotes used in either version of the filter
 # This parameter is optional, uncomment if needed
 # video_adjust_1='scale=1920x796,setsar=1/1';
+# video_adjust_1='crop=1920:754,scale=1280x504,setsar=1/1';
+# video_adjust_1='[VIN] scale=1920x796,setsar=1/1 [VOUT]';
+# video_adjust_1='[VIN] crop=1920:754 [CROP];[CROP] scale=1280x504,setsar=1/1 [VOUT]';
 # This parameter is optional, uncomment if needed, see above
 # video_complex_1="1";
 

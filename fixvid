@@ -79,6 +79,9 @@ NONCMD
   exit;
 fi
 
+# Load the configuration file if it exists
+[[ -s fixvid.conf ]] && . fixvid.conf;
+
 # Create and export some text shortcuts to use later.
 #
 # ffmpeg for ignoring all but the chosen type of stream
@@ -94,6 +97,8 @@ export use_threads="-threads 64";
 export strip_meta_only="-map_metadata -1";
 # ffmpeg to strip the metadata from the input file, including chapter times
 export strip_meta_all="-map_metadata -1 -map_chapters -1";
+export file_meta="-metadata creation_time='$timestamp' \
+-metadata language=eng -metadata title=\"$video_title\""
 
 # Call the command passed in, forwarding all other command line args
 $fixvid_dir/$command_check "$@";
