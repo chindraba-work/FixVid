@@ -58,7 +58,7 @@
 #     *_surround_esl.wav       The adjusted surround left channel
 #     *_surround_esl.wav       The adjusted surround right channel
 #
-# Displays the ffmpeg progress line while running amd the results of the
+# Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
 # Generates 2 file:
@@ -67,67 +67,50 @@
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || exit 4;
+[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Set the output filename base
-surround_prefix="${work_files}_surround";
+work_prefix="${work_files}_surround";
 
 # Skip this if it has already been done.
-# To rerun, delete the *_split_fc.wav file first
-if [ -s "${surround_prefix}_adjusted.ac3" ]; then
-  exit;
-fi
+# To rerun, delete the *_surround_adjusted.ac3 file first
+[[ -s "${work_prefix}_adjusted.ac3" ]] && exit 3;
 
-if \
-  [ ! -s "${surround_prefix}_efc.wav" ] || \
-  [ ! -s "${surround_prefix}_efl.wav" ] || \
-  [ ! -s "${surround_prefix}_efr.wav" ] || \
-  [ ! -s "${surround_prefix}_elf.wav" ] || \
-  [ ! -s "${surround_prefix}_esl.wav" ] || \
-  [ ! -s "${surround_prefix}_esr.wav" ]; then
-    rm -f "${surround_prefix}_efc.wav"
-    fixvid "hts-normalize";
-fi
+# Check for all dependent files
+# Force hts-normalize to (re)make all if one is missing
+[[ ! -s "${work_prefix}_efc.wav" ]] || \
+[[ ! -s "${work_prefix}_efl.wav" ]] || \
+[[ ! -s "${work_prefix}_efr.wav" ]] || \
+[[ ! -s "${work_prefix}_elf.wav" ]] || \
+[[ ! -s "${work_prefix}_esl.wav" ]] || \
+[[ ! -s "${work_prefix}_esr.wav" ]] && \
+{
+  rm -f "${work_prefix}_efc.wav";
+  fixvid "hts-normalize";
+}
 
-# Set the filename base for the command and log files
-control_prefix="fixvid_${surround_prefix}_merge";
-
-# Create the commmand file, which will do the work. It uses the data in
-# the configuration file to "fill in the blanks" for the ffmpeg call
-#
-
-cat <<EOC > "$control_prefix.cmd"
-FFREPORT=file='$control_prefix.log':level=40 \\
-ffmpeg -hide_banner -y -loglevel error -stats \\
--fflags +igndts -i '${surround_prefix}_efc.wav' \\
--fflags +igndts -i '${surround_prefix}_efl.wav' \\
--fflags +igndts -i '${surround_prefix}_efr.wav' \\
--fflags +igndts -i '${surround_prefix}_elf.wav' \\
--fflags +igndts -i '${surround_prefix}_esl.wav' \\
--fflags +igndts -i '${surround_prefix}_esr.wav' \\
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}_merge.log\":level=40 \
+ffmpeg -hide_banner -y -loglevel error -stats \
+$input_flags -i \"${work_prefix}_efc.wav\" \
+$input_flags -i \"${work_prefix}_efl.wav\" \
+$input_flags -i \"${work_prefix}_efr.wav\" \
+$input_flags -i \"${work_prefix}_elf.wav\" \
+$input_flags -i \"${work_prefix}_esl.wav\" \
+$input_flags -i \"${work_prefix}_esr.wav\" \
 -filter_complex '\
   [1:0][2:0][0:0][3:0][4:0][5:0] amerge=inputs=6 [CHANNELS];\
   [CHANNELS] $channels [OUT];\
   [OUT] asplit [INTERNAL][EXTERNAL]\
-' \\
--map "[EXTERNAL]" \\
--map_metadata -1 -metadata creation_time=$time_stamp \\
--metadata language=eng -metadata title="$video_title" \\
--metadata:s:0 language=eng -metadata:s:0 title="5.1 Surround (Enhanced)" \\
--c:0 ac3 -b:a 640k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_adjusted.ac3 \\
--map "[INTERNAL]" \\
--map_metadata -1 -metadata creation_time=$time_stamp \\
--metadata language=eng -metadata:s:0 language=eng \\
--metadata title="$video_title" -metadata:s:0 title="5.1 Surround (Enhanced)" \\
--c:0 libfdk_aac -profile:a aac_he -b:a 384k \\
--threads 64 -fflags +genpts \\
-${surround_prefix}_adjusted.aac;
-EOC
-
-# Make the newly created file executable
-chmod +x "$control_prefix.cmd";
-
-# Execute the just-made ffmpeg command
-time ./"$control_prefix.cmd";
+' \
+-map [EXTERNAL] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title=\"5.1 Surround (Enhanced)\" \
+-c:0 ac3 -b:a 640k \
+$use_threads $file_meta \
+\"${work_prefix}_adjusted.ac3\" \
+-map [INTERNAL] \
+$strip_meta_all $file_meta \
+-metadata:s:0 language=eng -metadata:s:0 title=\"5.1 Surround (Enhanced)\" \
+-c:0 libfdk_aac -profile:a aac_he -b:a 384k \
+$use_threads $file_meta \
+\"${work_prefix}_adjusted.aac\"";

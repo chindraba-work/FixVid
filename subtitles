@@ -2,7 +2,7 @@
 
 ########################################################################
 #                                                                      #
-#  video: script to control the extraction of multiple video versions  #
+#  subtitles: script to create multiple subtitle versions              #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
@@ -31,25 +31,24 @@
 ########################################################################
 
 #
-# Command script to launch extract_video with all the proper parameters
-# set. May launch the extraction multiple time if there are multiple
-# occurrences of the video configuration variables.
+# Command script to launch subtitle creation commands with all the
+# proper parameters set. May launch the extraction multiple time if
+# there are multiple occurrences of the configuration variables.
 #
 # Accepts 1 optional argument:
 #     group_num   Which setting group to use in extraction.
 #                 A value of "0", or no argument, will cycle through
-#                 all the available groups, extracting a video for
-#                 each. Any other number will extract one video,
-#                 using the group number to determine which one to
-#                 use.
+#                 all the available groups, creating subtitles for each.
+#                 Any other number will create one subtitle file using
+#                 the group number to determine which settings to use.
 #
 # Reads fixvid.conf for:
-#     video_label_n
-#     video_codec_n
-#     video_params_n
-#     video_equalizer_n     The eq video filter settings
-#     video_adjust_n
-#     video_complex_n
+#     subs_source_n
+#     subs_stream_n
+#     subs_label_n
+#     subs_title_n
+#     subs_type_n
+#     _n
 #         where "n" is an integer number beginning at "1"
 #
 # Displays nothing.
@@ -66,9 +65,9 @@
 # Flag to process, or not, all setting groups
 [[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
 
-group_prefix="video";
-group_key="codec";
-group_items="label codec params equalizer adjust complex";
+group_prefix="subs";
+group_key="source";
+group_items="source stream label title type";
 
 # Find the last valid group number
 group_limit=1;
@@ -80,18 +79,23 @@ done;
 
 [[ 0 = $group_num ]] && group_num=1;
 
-# Set the continue flag based on the validity of requested group number
+# Set the continue flag based on the validity of requested group ID
 [[ $group_num < $group_limit ]] && continue=1 || unset continue;
 
-# Walk through the list of valid group numbers
+# Walk through the list of valid group IDs
 while [[ $continue ]]; do
-  # Load the group settings into the generic set for video extraction
+  # Load the group settings into the generic set for subtitle creation
   for item in $group_items; do
     var="${group_prefix}_${item}_${group_num}";
     declare ${group_prefix}_${item}="${!var}";
   done
-  # Do the video extraction for this group
-  source "$fixvid_dir/extract-video";
+  # Do the subtitle creation for this group
+  # TODO
+  # Add conditional branches for different subtitle source types as they
+  # are needed or discoverd, along with the script to handle them.
+  if [[ 'text' == ${subs_type,,} ]]; then
+    source "$fixvid_dir/subtitles-text";
+  fi
   (( group_num++ ));
   # Check for completion
   [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;

@@ -34,14 +34,18 @@
 # all other fixvid commands will now be callable from within the code as
 # "$fixvid_dir/command"
 fixvid_source="${BASH_SOURCE[0]}"
-while [ -L "$fixvid_source" ]; do # resolve $fixvid_source until the file is no longer a symlink
+
+# Resolve $fixvid_source until the file is no longer a symlink
+while [ -L "$fixvid_source" ]; do
   fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )"
   fixvid_source="$(readlink "$fixvid_source")"
-  [[ $fixvid_source != /* ]] && fixvid_source="$fixvid_dir/$fixvid_source" # if $fixvid_source was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  # If $fixvid_source was a relative symlink, we need to resolve it
+  # relative to the path where the symlink file was located
+  [[ $fixvid_source != /* ]] && fixvid_source="$fixvid_dir/$fixvid_source"
 done
 export fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
 
-# Check for the existance of a command.
+# Check for the existence of a command.
 if [ -z $1 ]; then
   "$fixvid_dir/usage" $(basename $0);
   cat <<NOCMD | cat;
@@ -79,6 +83,9 @@ NONCMD
   exit;
 fi
 
+# Load the configuration file if it exists
+[[ -s fixvid.conf ]] && . fixvid.conf;
+
 # Create and export some text shortcuts to use later.
 #
 # ffmpeg for ignoring all but the chosen type of stream
@@ -94,50 +101,8 @@ export use_threads="-threads 64";
 export strip_meta_only="-map_metadata -1";
 # ffmpeg to strip the metadata from the input file, including chapter times
 export strip_meta_all="-map_metadata -1 -map_chapters -1";
+export file_meta="-metadata creation_time='$timestamp' \
+-metadata language=eng -metadata title=\"$video_title\""
 
 # Call the command passed in, forwarding all other command line args
 $fixvid_dir/$command_check "$@";
-
-exit;
-
-
-# Build the total video filter argument for ffmpeg
-video_filter="yadif";
-if [ "x" != "x$adjust_brightness" ]; then
-  video_filter="$video_filter,eq=contrast=$adjust_contrast:brightness=$adjust_brightness";
-fi
-if [ "x" != "x$adjust_video" ]; then
-  video_filter="$video_filter,$adjust_video";
-fi
-
-
-
-
-cat <<EOV >grab_video
-
-
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$input_flags -i '$video_source' \\
--map 0:$video_stream -vf '$video_filter' \\
-$strip_meta -metadata language=eng  -metadata title='$video_title Hearing-Impaired Subtitles' \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title' \\
--c:0 $video_codec $video_codec_params \\
-$video_only $use_threads $output_flags "${final_file}_video.mkv";
-
-ffmpeg -hide_banner -loglevel error -stats -y \\
-$input_flags -i '${final_file}_video.mkv' \\
-$input_flags -i '${final_file}_stereo_adjusted.aac' \\
-$input_flags -i '${final_file}_subtitles-HI.ass' \\
-$input_flags -i '${final_file}_subtitles.ass' \\
--map 0:0 -c:0 copy \\
--metadata:s:0 language=eng -metadata:s:0 title='$video_title' \\
--map 1:0 -c:1 copy \\
--metadata:s:1 language=eng -metadata:s:1 title='Enhanced Stereo' \\
--map 2:0 -c:s copy \\
--metadata:s:2 language=eng -metadata:s:2 title='Hearing-Impaired Subtitles' \\
--map 3:0 -c:s copy \\
--metadata:s:3 language=eng -metadata:s:3 title='Standard Subtitles' \\
-$strip_meta -metadata language=eng  -metadata title='$video_title' \\
-$use_threads $output_flags "$final_file.mkv";
-
-EOV
