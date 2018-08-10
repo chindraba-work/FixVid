@@ -46,7 +46,7 @@ test -n $PAGER && show_usage="$PAGER";
 cat <<USAGE | "$show_usage";
 Usage: $1 <command> [arg [arg [...] ] ]
 
-Processs files in the current directory, according to the information in
+Process files in the current directory, according to the information in
 the fixvid.conf file as steps in creating a video file from the source
 file(s).
 
@@ -64,7 +64,7 @@ Available commands are:
     hts-merge
         Combine individual channel files into a single 5.1 surround
         sound soundtrack, saving internal use and external copies of the
-        adjusted soundtrack. If any of the needed files are abscent,
+        adjusted soundtrack. If any of the needed files are absent,
         will force a run of hts-normalize.
 
     hts-normalize

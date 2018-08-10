@@ -12,7 +12,7 @@ The targeted requirements (meeting as many as possible) are:
  - Non-HI version included with HI version, when both are available,
 - Brightness and contrast adjusted:
  - As compensation for my eyesight,
- - As compensation for HEVC encoding tendancy to 'darken' videos,
+ - As compensation for HEVC encoding tendency to 'darken' videos,
 - Video size set to 1080p, or the 4:3 equivalent when the source will allow,
  - Reducing to 720p, or the 4:3 equivalent when needed,
  - Rarely, for old, .AVI movies, use even lower sizes,
@@ -27,7 +27,7 @@ Additionally, as part of the transcoding, I want to retain the following files:
  - As provided in the source, or
  - As created by downgrading the surround sound of the source,
 - The original surround sound,
-- An 'enahanced' and 'boosted' copy of the surround sound,
+- An 'enhanced' and 'boosted' copy of the surround sound,
 - Editable copy (Substation Alpha format) of included subtitles,
 - Editable copy (Substation Alpha format) of other, non-included, version of the subtitles:
  - Available from BluRay or DVD disks,

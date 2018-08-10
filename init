@@ -31,14 +31,14 @@
 ########################################################################
 
 #
-# Command script to initialize the working directory for using fixvid in
+# Command script to initialize the working directory for using FixVid in
 # it. Copies the configuration template to the working directory naming
 # it fixvid.conf. Will not overwrite an existing file of that name. Also
 # searches the directory for all files with .mp4, .mkv, .avi, .ac3, and
-# .aac extentions, assuming they may contain video or sound that is of
+# .aac extensions, assuming they may contain video or sound that is of
 # use in the process. All files, including symlinks, found are passed to
-# the ffprobe command, and the pertinant results displayed to the user
-# and saved into the fixvid.scan file ro later reference.
+# the ffprobe command, and the pertinent results displayed to the user
+# and saved into the fixvid.scan file for later reference.
 #
 # Accepts no arguments
 #

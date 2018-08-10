@@ -45,7 +45,7 @@
 #     video_title     added to the title metadata of the files
 #     timestamp       entered in the creation_time metadata for streams
 #
-# Displays the ffmpeg progress line while running amd the results of the
+# Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
 # Generates 1 file:
@@ -54,17 +54,14 @@
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || exit 4;
-
+[[ -s fixvid.conf ]] && . fixvid.conf || return 4;
 
 # Set the output filename base
-subs_prefix="${work_files}_subs_$subs_label";
+work_prefix="${work_files}_subs_$subs_label";
 
 # Skip this if it has already been done.
-# To rerun, delete the created .aac file first
-if [ -s "${subs_prefix}.ass" ]; then
-  exit;
-fi
+# To rerun, delete the created .ass file first
+[[ -s "${work_prefix}.ass" ]] && return 3;
 
 time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.log\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \

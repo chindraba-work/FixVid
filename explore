@@ -30,7 +30,7 @@
 #                                                                      #
 ########################################################################
 
-# Command script to apply ffprobe and filter the output for pertinant
+# Command script to apply ffprobe and filter the output for pertinent
 # data.
 #
 # Accepts one argument: Name of the file to probe

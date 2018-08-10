@@ -61,7 +61,7 @@
 #     *_surround_sl.wav     The surround left channel from the source
 #     *_surround_sr.wav     The surround right channel from the source
 #
-# Displays the ffmpeg progress line while running amd the results of the
+# Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
 # Generates 8 files:
@@ -76,86 +76,86 @@
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || exit 4;
+[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Set the output filename base
-surround_prefix="${work_files}_surround";
+work_prefix="${work_files}_surround";
 
 # Skip this if it has already been done.
-# To rerun, delete the *_split_fc.wav file first
-if [ -s "${surround_prefix}_fce.wav" ]; then
-  exit;
-fi
+# To rerun, delete the *_surround_fce.wav file first
+[[ -s "${work_prefix}_fce.wav" ]] && exit 3;
 
-if \
-  [ ! -s "${surround_prefix}_fc.wav" ] || \
-  [ ! -s "${surround_prefix}_fl.wav" ] || \
-  [ ! -s "${surround_prefix}_fr.wav" ] || \
-  [ ! -s "${surround_prefix}_lf.wav" ] || \
-  [ ! -s "${surround_prefix}_sl.wav" ] || \
-  [ ! -s "${surround_prefix}_sr.wav" ]; then
-    rm -f "${surround_prefix}_fc.wav"
-    fixvid "hts-split";
-fi
+# Check for all dependent files
+# Force hts-split to (re)make all if one is missing
+[[ ! -s "${work_prefix}_fc.wav" ]] || \
+[[ ! -s "${work_prefix}_fl.wav" ]] || \
+[[ ! -s "${work_prefix}_fr.wav" ]] || \
+[[ ! -s "${work_prefix}_lf.wav" ]] || \
+[[ ! -s "${work_prefix}_sl.wav" ]] || \
+[[ ! -s "${work_prefix}_sr.wav" ]] && \
+{
+  rm -f "${work_prefix}_fc.wav";
+  fixvid "hts-split";
+}
 
-time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${surround_prefix}_fc.wav\" \
+$input_flags -i \"${work_prefix}_fc.wav\" \
 -map 0:0 -af \"$dyna_center\" \
 -c:0 pcm_s16le -b:a 384k \
 $use_threads $output_flags \
-\"${surround_prefix}_efc.wav\"";
+\"${work_prefix}_efc.wav\"";
 
-cat "fixvid_${surround_prefix}.part" > "fixvid_${surround_prefix}.log";
+cat "fixvid_${work_prefix}.part" > "fixvid_${work_prefix}_normalize.log";
 
-time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${surround_prefix}_fl.wav\" \
+$input_flags -i \"${work_prefix}_fl.wav\" \
 -map 0:0 -af \"$dyna_front\" \
 -c:0 pcm_s16le -b:a 384k \
 $use_threads $output_flags \
-\"${surround_prefix}_efl.wav\"";
+\"${work_prefix}_efl.wav\"";
 
-cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
 
-time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${surround_prefix}_fr.wav\" \
+$input_flags -i \"${work_prefix}_fr.wav\" \
 -map 0:0 -af \"$dyna_front\" \
 -c:0 pcm_s16le -b:a 384k \
 $use_threads $output_flags \
-\"${surround_prefix}_efr.wav\"";
+\"${work_prefix}_efr.wav\"";
 
-cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
 
-time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${surround_prefix}_lf.wav\" \
+$input_flags -i \"${work_prefix}_lf.wav\" \
 -map 0:0 -af \"$dyna_surround\" \
 -c:0 pcm_s16le -b:a 384k \
 $use_threads $output_flags \
-\"${surround_prefix}_elf.wav\"";
+\"${work_prefix}_elf.wav\"";
 
-cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
 
-time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${surround_prefix}_sl.wav\" \
+$input_flags -i \"${work_prefix}_sl.wav\" \
 -map 0:0 -af \"$dyna_surround\" \
 -c:0 pcm_s16le -b:a 384k \
 $use_threads $output_flags \
-\"${surround_prefix}_esl.wav\"";
+\"${work_prefix}_esl.wav\"";
 
-cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
 
-time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.part\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${surround_prefix}_sr.wav\" \
+$input_flags -i \"${work_prefix}_sr.wav\" \
 -map 0:0 -af \"$dyna_surround\" \
 -c:0 pcm_s16le -b:a 384k \
 $use_threads $output_flags \
-\"${surround_prefix}_esr.wav\"";
+\"${work_prefix}_esr.wav\"";
 
-cat "fixvid_${surround_prefix}.part" >> "fixvid_${surround_prefix}.log";
+cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
 
-rm -f "fixvid_${surround_prefix}.part"
+rm -f "fixvid_${work_prefix}.part"

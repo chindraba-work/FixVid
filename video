@@ -33,7 +33,7 @@
 #
 # Command script to launch extract_video with all the proper parameters
 # set. May launch the extraction multiple time if there are multiple
-# occurances of the video configuration variables.
+# occurrences of the video configuration variables.
 #
 # Accepts 1 optional argument:
 #     group_num   Which setting group to use in extraction.
@@ -58,7 +58,7 @@
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || exit 4;
+[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Read the optional argument.
 [[ $1 ]] && group_num=$1 || group_num=0;
@@ -66,25 +66,29 @@ test -s fixvid.conf && . fixvid.conf || exit 4;
 # Flag to process, or not, all setting groups
 [[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
 
+group_prefix="video";
+group_key="codec";
+group_items="label codec params equalizer adjust complex";
+
 # Find the last valid group number
 group_limit=1;
-var="video_codec_$group_limit";
+var="${group_prefix}_${group_key}_${group_limit}";
 while [[ ${!var} ]]; do
   ((group_limit++));
-  var="video_codec_$group_limit";
+  var="${group_prefix}_${group_key}_${group_limit}";
 done;
 
 [[ 0 = $group_num ]] && group_num=1;
 
-# Set the continue flag based on the validity of requested group ID
+# Set the continue flag based on the validity of requested group number
 [[ $group_num < $group_limit ]] && continue=1 || unset continue;
 
-# Walk through the list of valid group IDs
+# Walk through the list of valid group numbers
 while [[ $continue ]]; do
   # Load the group settings into the generic set for video extraction
-  for item in label codec params equalizer adjust complex; do
-    var="video_${item}_${group_num}";
-    declare video_$item="${!var}";
+  for item in $group_items; do
+    var="${group_prefix}_${item}_${group_num}";
+    declare ${group_prefix}_${item}="${!var}";
   done
   # Do the video extraction for this group
   source "$fixvid_dir/extract-video";

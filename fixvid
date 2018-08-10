@@ -34,14 +34,18 @@
 # all other fixvid commands will now be callable from within the code as
 # "$fixvid_dir/command"
 fixvid_source="${BASH_SOURCE[0]}"
-while [ -L "$fixvid_source" ]; do # resolve $fixvid_source until the file is no longer a symlink
+
+# Resolve $fixvid_source until the file is no longer a symlink
+while [ -L "$fixvid_source" ]; do
   fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )"
   fixvid_source="$(readlink "$fixvid_source")"
-  [[ $fixvid_source != /* ]] && fixvid_source="$fixvid_dir/$fixvid_source" # if $fixvid_source was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  # If $fixvid_source was a relative symlink, we need to resolve it
+  # relative to the path where the symlink file was located
+  [[ $fixvid_source != /* ]] && fixvid_source="$fixvid_dir/$fixvid_source"
 done
 export fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
 
-# Check for the existance of a command.
+# Check for the existence of a command.
 if [ -z $1 ]; then
   "$fixvid_dir/usage" $(basename $0);
   cat <<NOCMD | cat;

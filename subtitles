@@ -57,7 +57,7 @@
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || exit 4;
+[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Read the optional argument.
 [[ $1 ]] && group_num=$1 || group_num=0;
@@ -65,12 +65,16 @@ test -s fixvid.conf && . fixvid.conf || exit 4;
 # Flag to process, or not, all setting groups
 [[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
 
+group_prefix="subs";
+group_key="source";
+group_items="source stream label title type";
+
 # Find the last valid group number
 group_limit=1;
-var="subs_source_$group_limit";
+var="${group_prefix}_${group_key}_${group_limit}";
 while [[ ${!var} ]]; do
   ((group_limit++));
-  var="subs_source_$group_limit";
+  var="${group_prefix}_${group_key}_${group_limit}";
 done;
 
 [[ 0 = $group_num ]] && group_num=1;
@@ -81,9 +85,9 @@ done;
 # Walk through the list of valid group IDs
 while [[ $continue ]]; do
   # Load the group settings into the generic set for subtitle creation
-  for item in source stream label title type; do
-    var="subs_${item}_${group_num}";
-    declare subs_$item="${!var}";
+  for item in $group_items; do
+    var="${group_prefix}_${item}_${group_num}";
+    declare ${group_prefix}_${item}="${!var}";
   done
   # Do the subtitle creation for this group
   # TODO

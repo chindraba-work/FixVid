@@ -32,7 +32,7 @@
 
 #
 # Command script to create surround sound files in the DTS format using
-# the previously created AC3 files. Will only create both the reqular
+# the previously created AC3 files. Will only create both the regular
 # and adjusted versions if both versions exist in AC3 format. If either
 # version is missing, the script will abort.
 #
@@ -43,7 +43,7 @@
 #     video_title     added to the title metadata of the files
 #     timestamp       entered in the creation_time metadata for streams
 #
-# Displays the ffmpeg progress line while running amd the results of the
+# Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
 # Generates 4 files:
@@ -54,34 +54,31 @@
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || exit 4;
+[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Set the output filename base
-surround_prefix="${work_files}_surround";
+work_prefix="${work_files}_surround";
 
 # Skip this if it has already been done.
-# To rerun, delete the *_stereo_adjusted.aac file first
-if [ -s "${surround_prefix}_adjusted.dts" ]; then
-  exit;
-fi
+# To rerun, delete the *_stereo_adjusted.dts file first
+[[ -s "${work_prefix}_adjusted.dts" ]] && exit 3;
 
-if [ ! -s ${surround_prefix}.ac3 ] || [ ! -s ${surround_prefix}_adjusted.ac3 ]; then
-  exit;
-fi
+# Verify that the source files exist, or exit
+[[ ! -s ${work_prefix}.ac3 ]] || [[ ! -s ${work_prefix}_adjusted.ac3 ]] && exit 3;
 
-time bash -c "FFREPORT=file=\"fixvid_${surround_prefix}.log\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.log\":level=40 \
 ffmpeg -hide_banner -y -loglevel error -stats \
-$input_flags -i '${surround_prefix}.ac3' \
-$input_flags -i '${surround_prefix}_adjusted.ac3' \
+$input_flags -i '${work_prefix}.ac3' \
+$input_flags -i '${work_prefix}_adjusted.ac3' \
 -map 0:0 \
 $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Surround Sound' \
 -c:0 dts -b:a 768k -strict -2 \
 $use_threads $output_flags \
-\"${surround_prefix}.dts\" \
+\"${work_prefix}.dts\" \
 -map 1:0 \
 $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Surround Sound (Enhanced)' \
 -c:0 dts -b:a 768k -strict -2 \
 $use_threads $output_flags \
-\"${surround_prefix}_adjusted.dts\"";
+\"${work_prefix}_adjusted.dts\"";

@@ -46,10 +46,10 @@
 #         chapter_file      The file with chapter titles, if any
 #         subs_label_n      The filename for subtitle group n
 #         subs_title_n      The metadata title for subtitle group n
-#         subs_included_n   If subtitle group n is embeded in the video
+#         subs_included_n   If subtitle group n is embedded in the video
 #         subs_SDH_n        If subtitle group n is for Hearing-Impaired
 #
-# Displays the ffmpeg progress line while running amd the results of the
+# Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
 # Generates 1 file:
@@ -57,16 +57,14 @@
 #
 
 # Load the configuration file
-test -s fixvid.conf && . fixvid.conf || return 4;
+[[ -s fixvid.conf ]] && . fixvid.conf || return 4;
 
 # Set the output filename base
-movie_prefix="${work_files}_full_${video_codec}_${video_label}";
+work_prefix="${work_files}_full_${video_codec}_${video_label}";
 
 # Skip this if it has already been done.
-# To rerun, delete the *_video.mkv file first
-if [ -s "${movie_prefix}.mkv" ]; then
-  return 4;
-fi
+# To rerun, delete the *_full_??.mkv file first
+[[ -s "${work_prefix}.mkv" ]] && return 4;
 
 # Make sure our counters and flags are cleared before use
 unset source_count;
@@ -103,7 +101,7 @@ while [[ ${!check_var} ]]; do
     param_var="subs_${item}_${subs_group}";
     declare subs_$item="${!param_var}";
   done
-  if [[ $subs_included ]]; then
+  if [[ $subs_included ]] && [[ -s "${work_files}_subs_${subs_label}.ass" ]]; then
     source_list="$source_list \
     $input_flags -i \"${work_files}_subs_${subs_label}.ass\"";
     stream_list="$stream_list \
@@ -139,9 +137,9 @@ if [[ $chapter_file ]] && [[ -s $chapter_file ]]; then
   stream_count=$((++stream_count));
 fi
 
-time bash -c "FFREPORT=file='fixvid_${movie_prefix}.log':level=40 \
+time bash -c "FFREPORT=file='fixvid_${work_prefix}.log':level=40 \
 ffmpeg -hide_banner -loglevel quiet -stats -y \
 $source_list \
 $stream_list \
 $file_meta -metadata description=\"Chindraba Enhanced\" \
-$use_threads $output_flags \"${movie_prefix}.mkv\"";
+$use_threads $output_flags \"${work_prefix}.mkv\"";
