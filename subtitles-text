@@ -56,6 +56,11 @@
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || return 4;
 
+# Check for source file and replace with common source if missing
+if [[ 'x' == "x$subs_source" ]] && [[ -s $video_source ]]; then
+  subs_source=$video_source;
+fi
+
 # Set the output filename base
 work_prefix="${work_files}_subs_$subs_label";
 

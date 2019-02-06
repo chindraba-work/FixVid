@@ -95,7 +95,7 @@ stream_count=$((++stream_count));
 # Add in the subtitles
 # All versions get all available subtitle streams
 subs_group=1;
-check_var="subs_source_$subs_group";
+check_var="subs_stream_$subs_group";
 while [[ ${!check_var} ]]; do
   for item in label title included SDH; do
     param_var="subs_${item}_${subs_group}";
