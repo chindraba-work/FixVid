@@ -96,7 +96,7 @@ export subtitles_only="-vn -an -dn";
 export input_flags="-fflags +igndts";
 export output_flags="-fflags +genpts";
 # ffmpeg to leverage the multi-threading of the CPU, for aware libraries
-export use_threads="-threads 64";
+export use_threads="-threads 16";
 # ffmpeg to strip the metadata from the input file, except chapter times
 export strip_meta_only="-map_metadata -1";
 # ffmpeg to strip the metadata from the input file, including chapter times
