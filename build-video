@@ -95,15 +95,21 @@ stream_count=$((++stream_count));
 # Add in the subtitles
 # All versions get all available subtitle streams
 subs_group=1;
-check_var="subs_source_$subs_group";
+check_var="subs_stream_$subs_group";
 while [[ ${!check_var} ]]; do
-  for item in label title included SDH; do
+  for item in label title included SDH type; do
     param_var="subs_${item}_${subs_group}";
     declare subs_$item="${!param_var}";
   done
-  if [[ $subs_included ]] && [[ -s "${work_files}_subs_${subs_label}.ass" ]]; then
+  if [[ 'text' == ${subs_type,,} ]]; then
+    sub_ext='ass';
+  elif [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
+    subs_ext='mkv';
+  fi
+  if [[ $subs_included ]] \
+      && [[ -s "${work_files}_subs_${subs_label}.$subs_ext" ]]; then
     source_list="$source_list \
-    $input_flags -i \"${work_files}_subs_${subs_label}.ass\"";
+    $input_flags -i \"${work_files}_subs_${subs_label}.$subs_ext\"";
     stream_list="$stream_list \
     -map $source_count:0 -c:$stream_count copy \
     -metadata:s:$stream_count language=eng \

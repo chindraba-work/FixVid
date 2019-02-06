@@ -97,7 +97,7 @@ Available commands are:
         <group_num> is a number from 1 to whatever, and corresponds to
         the subs_?_x settings in the config file. The numbers must begin
         at 1, and have no gaps in the sequence. The first group of
-        settings without a source will cause the sequence to end prior
+        settings without a stream will cause the sequence to end prior
         to that number. If fixvid subtitles is called with an argument
         of zero, or no argument, then all the versions will be created,
         otherwise only the version which matches the argument will be

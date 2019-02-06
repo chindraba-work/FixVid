@@ -74,6 +74,11 @@
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
+# Check for source file and replace with common source if missing
+if [[ 'x' == "x$surround_source" ]] && [[ -s $video_source ]]; then
+  surround_source=$video_source;
+fi
+
 # Set the output filename base
 work_prefix="${work_files}_surround";
 

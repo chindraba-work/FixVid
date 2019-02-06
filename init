@@ -49,6 +49,16 @@
 
 test -s fixvid.conf || cp "$fixvid_dir/config-template" fixvid.conf;
 
+if [[ -s "movie" ]]; then
+  echo "";
+  echo "********************************************************************************" | tee -a "fixvid.scan";
+  echo "    Reading movie:" | tee -a "fixvid.scan";
+  echo "--------------------------------------------------------------------------------" | tee -a "fixvid.scan";
+  $fixvid_dir/explore "movie" | tee -a "fixvid.scan";
+  echo "" | tee -a "fixvid.scan";
+  echo "" | tee -a "fixvid.scan";
+fi
+
 for file_type in "mp4" "mkv" "avi" "aac" "ac3" "wav" "mp3"; do
   for filename in *.$file_type; do
     if [ -s "$filename" ]; then

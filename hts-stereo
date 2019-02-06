@@ -96,6 +96,18 @@
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
+# Check for source file and replace with common source if missing
+if [[ 'x' == "x$surround_source" ]] && [[ -s $video_source ]]; then
+  surround_source=$video_source;
+fi
+
+# Set the stereo mix based on the chosen surround layout
+if [[ '5.1(side)' == $surround_layout ]]; then
+  stereo_mix=$stereo_mix_51_side;
+elif [[ '5.1' == $surround_layout ]]; then
+  stereo_mix=$stereo_mix_51;
+fi
+
 # Set the output filename base
 work_prefix="${work_files}_stereo";
 

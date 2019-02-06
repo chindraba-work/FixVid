@@ -2,13 +2,13 @@
 
 ########################################################################
 #                                                                      #
-#  subtitles-text: extract subtitles from a souce and create ASS file  #
+#  subtitles-dvd: copy dvd_subtitles format subtitels from a souce     #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2019  Ronald Lamoreaux <code@chindraba.work>            #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -31,9 +31,9 @@
 ########################################################################
 
 #
-# Command script to extract the subtitles from a text-based file, such
-# as an SRT or ASS file, or from an existing video file, and save them
-# to a known named file for eventual inclusion in the finished product.
+# Command script to copy the subtitles in dvd_subtitle format from the
+# source file creating a stand-alone MKV file to hold them for eventual
+# inclusion in the finished product.
 # Because of the need to make multiple versions of subtitles, this will
 # require a separate launcher with the ability to discriminate the
 # variables from the config file and options from the command line.
@@ -49,7 +49,7 @@
 # time command once finished.
 #
 # Generates 1 file:
-#     *_<label>.ass   The copied subtitles in Substation Alpha format
+#     *_<label>.mkv   The copied subtitles in dvd_subtitle format
 #                     <label>
 #
 
@@ -66,12 +66,13 @@ work_prefix="${work_files}_subs_$subs_label";
 
 # Skip this if it has already been done.
 # To rerun, delete the created .ass file first
-[[ -s "${work_prefix}.ass" ]] && return 3;
+[[ -s "${work_prefix}.mkv" ]] && return 3;
 
 time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.log\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
 $input_flags -i \"$subs_source\" \
+$strip_meta_all \
 -map 0:$subs_stream \
--c:0 ass \
+-c:0 copy \
 $subtitles_only $use_threads $output_flags \
-\"$work_prefix.ass\"";
+\"$work_prefix.mkv\"";

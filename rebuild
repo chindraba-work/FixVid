@@ -74,14 +74,6 @@ while [[ ${!var} ]]; do
   var="${group_prefix}_${group_key}_${group_limit}";
 done;
 
-# Find the last valid group number
-group_limit=1;
-var="video_codec_$group_limit";
-while [[ ${!var} ]]; do
-  ((group_limit++));
-  var="video_codec_$group_limit";
-done;
-
 [[ 0 = $video_group ]] && video_group=1;
 
 # Set the continue flag based on the validity of requested group ID
@@ -89,7 +81,7 @@ done;
 
 # Walk through the list of valid group IDs
 while [[ $continue ]]; do
-  # Load the group settings into the generic set for video extraction
+  # Load the group settings into the generic set for video rebuilding
   for item in $group_items; do
     var="${group_prefix}_${item}_${video_group}";
     declare ${group_prefix}_${item}="${!var}";

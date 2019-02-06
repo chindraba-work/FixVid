@@ -30,22 +30,11 @@
 #                                                                      #
 ########################################################################
 
-
 # This file is copied, as fixvid.conf, into the working directory
 
-# Name used as the prefix for work files, use shell-safe names
-work_files="";
 
-# Name used as the prefix for the final product files, stay shell-safe
-final_files="";
 
-# Year the video was produced/released
-video_year='';
-
-# Name of the video that is stored in the meta data of the files.
-# To use a double quote in the title use triple-escape, \\\"
-video_title="";
-
+########################################################################
 #
 # Chapter titles are a special case. Chapter information is embedded in
 # the container rather than the stream(s). The process of creating the
@@ -58,26 +47,28 @@ video_title="";
 # just add them back into the final product, when they exist.
 #
 # Name of the file that has useful chapter data. Leave commented if none
-# chapter_file='';
+# chapter_file='movie';
 
 ########################################################################
 #
 #                        Video component settings
 # File that has the video to use as the source for the final product
-video_source='';
+video_source='movie';
 video_stream=0;
 
 # An extra label for the video extract file to separate one extraction
 # from the rest. Resolution is a common choice here.
 video_label_1="1080p";
 
-# The codec to use in the final product, HEVC or H2264 for me
+# The codec to use in the final product, HEVC or H264 for me
 video_codec_1='HEVC';
 
 # The extra parameters to pass to the video encoder
-# HEVC (nVidia) uses these, with adjustments as needed
 # This parameter is expected to exist
-video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level 4.1 -profile:v main -tier high';
+
+# HEVC (nVidia) uses these, with adjustments as needed
+video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level 4.1 -profile:v main -tier high  -pix_fmt yuv420p';
+
 # H264 (nVidia) uses these, with adjustments as needed
 # video_params_1="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high";
 
@@ -91,7 +82,7 @@ video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level
 #     gamma_b, (blue)float: 0.1 to 10.0, default 1
 #     gamma_weight, float: 0.0 to 1.0, default 1, (level of effect)
 # This paramater is optional, uncomment if needed
-video_equalizer_1='eq=contrast=1.12:brightness=0.18';
+# video_equalizer_1='eq=contrast=1.12:brightness=0.18';
 
 # Adjustments to the video's resolution, size, aspect ratio, etc., and
 # any other filtering needed. It can be simple, as passed to the -vf of
@@ -113,9 +104,9 @@ video_equalizer_1='eq=contrast=1.12:brightness=0.18';
 # set of variables above, replacing the digit "1" with "2", and so on.
 # The program will look for each, in sequence, and stop on the first one
 # not found: group 3 will be ignored unless there is a group 2, etc.
-# video_label_2='';
-# video_codec_2='';
-# video_params_2="";
+# video_label_2='1080p';
+# video_codec_2='H264';
+# video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high  -pix_fmt yuv420p";
 # video_equalizer_2='';
 # video_adjust_2='';
 # video_complex_2="";
@@ -125,22 +116,20 @@ video_equalizer_1='eq=contrast=1.12:brightness=0.18';
 #                        Audio component settings
 #
 # File that has the audio to use as source for the final stereo stream
-stereo_source='';
+# stereo_source='movie';
 stereo_stream=1;
 
 # File that has the audio to use as source for the final surround stream
-surround_source='';
+# surround_source='movie';
 surround_stream=1;
 
 ### Use for 5.1 surround sound
-# surround_layout='5.1';
-# channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
-# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
+channels_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+stereo_mix_51='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
 
 ### Use for 5.1(side) surround sound
-# surround_layout='5.1(side)';
-# channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
-# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
+channels_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+stereo_mix_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
 
 
 # SETTINGS for dynaudnorm filter
@@ -165,34 +154,43 @@ dyna_surround='dynaudnorm=f=500:g=31:p=0.80:m=15:s=30';
 
 
 
-# Subtitle component settings
-subs_source_1='titles.srt';
-subs_stream_1='0';
+########################################################################
+#
+#                        Subtitle component settings
+#
+# File that has the subtitles to use as the final subtitle stream
+# subs_source_1='titles.srt';
+subs_stream_1='2';
+
 # The label used in the filename to separate one set of subtitles from
-# any others. Will also be used as the suffix for the final product as
-# the generated subtitles are saved in external ASS and SRT files for
-# use in players which need them. File name will be something like:
+# any others.
+# For text-based subtitles, will also be used as the suffix for the
+# final product as the generated subtitles are saved in external ASS and
+# SRT files for use in players which need them. File name will be
+# something like:
 #       The_Movie_Name-CHI.srt
 # for the case of subs_label set to CHI. The one exception to this is if
-# the subs_label value is exactly DEFAULT, in which case there will the
-# suffix will be omitted. Many video players will take a subtitle file
-# with the same name as the video file and consider them to be the set
-# to load automatically
-subs_label_1='HI';
+# the subs_label value is exactly DEFAULT, in which case the suffix will
+# omitted. Many video players will take a subtitle file with the same
+# name as the video file and consider them to be the set to load
+# automatically
+subs_label_1='DEFAULT';
+
 # The title of the subtitles, as shown by most media players when the
 # user selects subtitles from the menu
-subs_title_1='Hearing-Impaired';
+subs_title_1='Standard subtitles';
 # What type of subtitles the souce file contains. Text is for SRT, AAS,
 # and ASS.
-subs_type_1='text';
+subs_type_1='dvd_subtitle';
 # Are these subtitles to be included in the final product video?
 # Leave commented to prevent them from being included.
 subs_included_1='1';
+
 # Setting to show that this is a 'Hearing-Impaired' subtitle stream.
 # Not required, but having it set will allow the stream to be marked as
 # Hearing-Impaired in the final product in the event that a player is
 # set up to always choose such subtitles over other defaults.
-subs_SDH_1='1';
+# subs_SDH_1='1';
 
 # Additional sets of subtitles may be created by using increasing
 # numbers for each set of parameters. All parameters are needed for the
@@ -205,8 +203,33 @@ subs_SDH_1='1';
 # subs_included_2='1';
 # subs_SDH_2='1';
 
-
-timestamp='1993-08-13T13:07:08.69Z';
-
 # Flag to allow converting to the nVidia encoders
 enable_nvidia=true;
+
+
+#######################################################################
+#
+#                  The most often changed values
+#  Set to make the system work "as-is" but not very informative
+
+# For surround sound souces, uncomment the correct layout below
+
+# surround_layout='5.1';
+# surround_layout='5.1(side)';
+
+# The "time" when this was all collected and remuxed.
+timestamp='2018-10-31T13:21:08.69Z';
+
+# Year the video was produced/released
+video_year='2018';
+
+# Name used as the prefix for work files, use shell-safe names
+work_files="stream";
+
+# Name used as the prefix for the final product files, stay shell-safe
+final_files="Final";
+
+# Name of the video that is stored in the meta data of the files.
+# To use a double quote in the title use triple-escape, \\\"
+video_title="Video Title";
+
