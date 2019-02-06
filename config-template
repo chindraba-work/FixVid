@@ -82,7 +82,7 @@ video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level
 #     gamma_b, (blue)float: 0.1 to 10.0, default 1
 #     gamma_weight, float: 0.0 to 1.0, default 1, (level of effect)
 # This paramater is optional, uncomment if needed
-video_equalizer_1='eq=contrast=1.12:brightness=0.18';
+# video_equalizer_1='eq=contrast=1.12:brightness=0.18';
 
 # Adjustments to the video's resolution, size, aspect ratio, etc., and
 # any other filtering needed. It can be simple, as passed to the -vf of
@@ -124,14 +124,12 @@ stereo_stream=1;
 surround_stream=1;
 
 ### Use for 5.1 surround sound
-# surround_layout='5.1';
-# channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
-# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
+channels_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+stereo_mix_51='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
 
 ### Use for 5.1(side) surround sound
-# surround_layout='5.1(side)';
-# channels='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
-# stereo_mix='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
+channels_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+stereo_mix_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
 
 
 # SETTINGS for dynaudnorm filter
@@ -183,7 +181,7 @@ subs_label_1='DEFAULT';
 subs_title_1='Standard subtitles';
 # What type of subtitles the souce file contains. Text is for SRT, AAS,
 # and ASS.
-subs_type_1='text';
+subs_type_1='dvd_subtitle';
 # Are these subtitles to be included in the final product video?
 # Leave commented to prevent them from being included.
 subs_included_1='1';
@@ -213,6 +211,11 @@ enable_nvidia=true;
 #
 #                  The most often changed values
 #  Set to make the system work "as-is" but not very informative
+
+# For surround sound souces, uncomment the correct layout below
+
+# surround_layout='5.1';
+# surround_layout='5.1(side)';
 
 # The "time" when this was all collected and remuxed.
 timestamp='2018-10-31T13:21:08.69Z';

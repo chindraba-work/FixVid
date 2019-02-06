@@ -96,6 +96,9 @@ while [[ $continue ]]; do
   if [[ 'text' == ${subs_type,,} ]]; then
     source "$fixvid_dir/subtitles-text";
   fi
+  if [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
+    source "$fixvid_dir/subtitles-dvd";
+  fi
   (( group_num++ ));
   # Check for completion
   [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;

@@ -69,6 +69,13 @@
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
+# Set the channels based on the chosen surround layout
+if [[ '5.1(side)' == $surround_layout ]]; then
+  channels=$channels_51_side;
+elif [[ '5.1' == $surround_layout ]]; then
+  channels=$channels_51;
+fi
+
 # Set the output filename base
 work_prefix="${work_files}_surround";
 
