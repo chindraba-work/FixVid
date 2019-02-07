@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -67,10 +67,14 @@ video_codec_1='HEVC';
 # This parameter is expected to exist
 
 # HEVC (nVidia) uses these, with adjustments as needed
-video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level 4.1 -profile:v main -tier high  -pix_fmt yuv420p';
+video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level 4.1 -profile:v main -tier high';
+# Add -pix_fmt to drop from 10-bit to 8-bit
+# video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level 4.1 -profile:v main -tier high -pix_fmt yuv420p';
 
 # H264 (nVidia) uses these, with adjustments as needed
 # video_params_1="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high";
+# Add -pix_fmt to drop from 10-bit to 8-bit
+# video_params_1="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high" -pix_fmt yuv420p';
 
 # Equalizer adjustments to the video. Options include:
 #     contrast, float: -2.0 to 2.0, default 1
@@ -106,7 +110,9 @@ video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level
 # not found: group 3 will be ignored unless there is a group 2, etc.
 # video_label_2='1080p';
 # video_codec_2='H264';
-# video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high  -pix_fmt yuv420p";
+# video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high";
+# Add -pix_fmt to drop from 10-bit to 8-bit
+# video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high -pix_fmt yuv420p";
 # video_equalizer_2='';
 # video_adjust_2='';
 # video_complex_2="";
@@ -215,7 +221,7 @@ enable_nvidia=true;
 # For surround sound souces, uncomment the correct layout below
 
 # surround_layout='5.1';
-# surround_layout='5.1(side)';
+surround_layout='5.1(side)';
 
 # The "time" when this was all collected and remuxed.
 timestamp='2018-10-31T13:21:08.69Z';

@@ -47,29 +47,29 @@
 # time command once finished.
 #
 # Generates 4 files:
-#     fixvid_*_dts.cmd         The complete ffmpeg command to execute
-#     fixvid_*_dts.log         The captured output of the ffmpeg command
-#     *_surround.dts           The original soundtrack
-#     *_surround_adjusted.dts  The adjusted soundtrack
+#     fixvid-*-dts.cmd         The complete ffmpeg command to execute
+#     fixvid-*-dts.log         The captured output of the ffmpeg command
+#     *-surround.dts           The original soundtrack
+#     *-surround-adjusted.dts  The adjusted soundtrack
 #
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Set the output filename base
-work_prefix="${work_files}_surround";
+work_prefix="${work_files}-surround";
 
 # Skip this if it has already been done.
 # To rerun, delete the *_stereo_adjusted.dts file first
-[[ -s "${work_prefix}_adjusted.dts" ]] && exit 3;
+[[ -s "${work_prefix}-adjusted.dts" ]] && exit 3;
 
 # Verify that the source files exist, or exit
-[[ ! -s ${work_prefix}.ac3 ]] || [[ ! -s ${work_prefix}_adjusted.ac3 ]] && exit 3;
+[[ ! -s "${work_prefix}.ac3" ]] || [[ ! -s "${work_prefix}-adjusted.ac3" ]] && exit 3;
 
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.log\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid-${work_prefix}.log\":level=40 \
 ffmpeg -hide_banner -y -loglevel error -stats \
 $input_flags -i '${work_prefix}.ac3' \
-$input_flags -i '${work_prefix}_adjusted.ac3' \
+$input_flags -i '${work_prefix}-adjusted.ac3' \
 -map 0:0 \
 $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Surround Sound' \
@@ -81,4 +81,4 @@ $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Surround Sound (Enhanced)' \
 -c:0 dts -b:a 768k -strict -2 \
 $use_threads $output_flags \
-\"${work_prefix}_adjusted.dts\"";
+\"${work_prefix}-adjusted.dts\"";
