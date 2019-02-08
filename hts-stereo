@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -67,12 +67,12 @@
 # time command once finished.
 #
 # Generates 6 files:
-#     fixvid_*_stereo.cmd     The complete ffmpeg command to execute
-#     fixvid_*_stereo.log     The captured output of the ffmpeg command
-#     *_stereo.aac            The copied stereo soundtrack, AC3 format
-#     *_stereo.ac3            The copied stereo soundtrack, AC3 format
-#     *_stereo_adjusted.aac   The adjusted soundtrack, AAC format
-#     *_stereo_adjusted.ac3   The adjusted soundtrack, AC3 format
+#     fixvid-*-stereo.cmd     The complete ffmpeg command to execute
+#     fixvid-*-stereo.log     The captured output of the ffmpeg command
+#     *-stereo.aac            The copied stereo soundtrack, AC3 format
+#     *-stereo.ac3            The copied stereo soundtrack, AC3 format
+#     *-stereo_adjusted.aac   The adjusted soundtrack, AAC format
+#     *-stereo_adjusted.ac3   The adjusted soundtrack, AC3 format
 #
 
 ##
@@ -109,13 +109,13 @@ elif [[ '5.1' == $surround_layout ]]; then
 fi
 
 # Set the output filename base
-work_prefix="${work_files}_stereo";
+work_prefix="${work_files}-stereo";
 
 # Skip this if it has already been done.
 # To rerun, delete the *_stereo_adjusted.aac file first
-[[ -s "${work_prefix}_adjusted.aac" ]] && exit 3;
+[[ -s "${work_prefix}-adjusted.aac" ]] && exit 3;
 
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.log\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid-${work_prefix}.log\":level=40 \
 ffmpeg -hide_banner -y -loglevel error -stats \
 $input_flags -i \"$surround_source\" \\
 -filter_complex '\
@@ -147,16 +147,16 @@ $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
 -c:0 libfdk_aac -profile:a aac_he -b:a 128k \
 $audio_only $use_threads $output_flags \
-\"${work_prefix}_adjusted.aac\" \
+\"${work_prefix}-adjusted.aac\" \
 -map [AC3e] \
 $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
 -c:0 ac3 -b:a 192k \
 $audio_only $use_threads $output_flags \
-\"${work_prefix}_adjusted.ac3\" \
+\"${work_prefix}-adjusted.ac3\" \
 -map [WAVe] \
 $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
 -c:0 pcm_s16le -b:a 384k \
 $audio_only $use_threads $output_flags \
-\"${work_prefix}_adjusted.wav\"";
+\"${work_prefix}-adjusted.wav\"";

@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -54,7 +54,7 @@
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Check for audio source (required)
-[[ -s "${work_files}_stereo_adjusted.aac" ]] || exit 4;
+[[ -s "${work_files}-stereo-adjusted.aac" ]] || exit 4;
 
 # Read the optional argument.
 [[ $1 ]] && video_group=$1 || video_group=0;
