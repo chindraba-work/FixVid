@@ -69,18 +69,18 @@
 # Generates 6 files:
 #     fixvid-*-stereo.cmd     The complete ffmpeg command to execute
 #     fixvid-*-stereo.log     The captured output of the ffmpeg command
-#     *-stereo.aac            The copied stereo soundtrack, AC3 format
-#     *-stereo.ac3            The copied stereo soundtrack, AC3 format
-#     *-stereo_adjusted.aac   The adjusted soundtrack, AAC format
-#     *-stereo_adjusted.ac3   The adjusted soundtrack, AC3 format
+#     *-stereo.aac            The remixed stereo soundtrack, AAC format
+#     *-stereo.ac3            The remixed stereo soundtrack, AC3 format
+#     *-stereo_adjusted.aac   The normalized soundtrack, AAC format
+#     *-stereo_adjusted.ac3   The normalized soundtrack, AC3 format
 #
 
 ##
 ##      NOTE:
 ##
 ##  The script will recreate all 4 soundtrack files every time it's run.
-##  The performance hit for recreating the 2 un-adjusted stereo files
-##  is negligible compared to the speed of encoding only the adjusted
+##  The performance hit for recreating the 2 un-normalized stereo files
+##  is negligible compared to the speed of encoding only the normalized
 ##  versions, and does not justify the increased complexity of scripting
 ##  to exclude them on reruns
 ##
@@ -120,9 +120,9 @@ ffmpeg -hide_banner -y -loglevel error -stats \
 $input_flags -i \"$surround_source\" \\
 -filter_complex '\
   [0:$surround_stream] $stereo_mix [STEREO];\
-  [STEREO] asplit=4 [AAC][AC3][WAV][IN];\
+  [STEREO] asplit=3 [AAC][AC3][IN];\
   [IN] $dyna_stereo [NORM];\
-  [NORM] asplit=3 [AACe][AC3e][WAVe]\
+  [NORM] asplit=2 [AACe][AC3e]\
 ' \
 -map [AAC] \
 $strip_meta_all $file_meta \
@@ -136,12 +136,6 @@ $strip_meta_all $file_meta \
 -c:0 ac3 -b:a 192k \
 $audio_only $use_threads $output_flags \
 \"${work_prefix}.ac3\" \
--map [WAV] \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title='Stereo' \
--c:0 pcm_s16le -b:a 384k \
-$audio_only $use_threads $output_flags \
-\"${work_prefix}.wav\" \
 -map [AACe] \
 $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
@@ -153,10 +147,4 @@ $strip_meta_all $file_meta \
 -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
 -c:0 ac3 -b:a 192k \
 $audio_only $use_threads $output_flags \
-\"${work_prefix}-adjusted.ac3\" \
--map [WAVe] \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' \
--c:0 pcm_s16le -b:a 384k \
-$audio_only $use_threads $output_flags \
-\"${work_prefix}-adjusted.wav\"";
+\"${work_prefix}-adjusted.ac3\"";

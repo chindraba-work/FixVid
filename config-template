@@ -130,12 +130,12 @@ stereo_stream=1;
 surround_stream=1;
 
 ### Use for 5.1 surround sound
-channels_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
-stereo_mix_51='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*BL|FR < 1.7*FC + 0.5*FR + 0.5*BR';
+channels_51='channelmap=0-FL|1-FR|2-FC|3-BL|4-BR|5-LFE:5.1';
+stereo_mix_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
 
 ### Use for 5.1(side) surround sound
-channels_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
-stereo_mix_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*FR + 0.5*SR';
+channels_51_side='channelmap=0-FL|1-FR|2-FC|3-SL|4-SR|5-LFE:5.1(side)';
+stereo_mix_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
 
 
 # SETTINGS for dynaudnorm filter
@@ -153,10 +153,10 @@ stereo_mix_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.5*SL|FR < 1.7*FC + 0.5*F
 # s compression factor[0.0(disabled)-30.0]: lower is more dynamic
 #   compression, 3 seems a hard no-distortion floor.
 
-dyna_stereo='dynaudnorm=f=300:g=23:p=0.95:m=30:s=30';
-dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=30';
-dyna_front='dynaudnorm=f=250:g=23:p=0.89:m=15:s=30';
-dyna_surround='dynaudnorm=f=500:g=31:p=0.80:m=15:s=30';
+dyna_stereo='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
+dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
+dyna_front='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
+dyna_surround='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
 
 
 
