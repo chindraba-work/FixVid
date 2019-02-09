@@ -30,15 +30,6 @@
 #                                                                      #
 ########################################################################
 
-##
-##      NOTE:
-##
-##  This file is only set up for processing of files related to a
-##  surround sound soundtrack of either 5.1 or 5.1(side). Any other type
-##  of surround sound setup, 7.1, etc., will require a complete set of
-##  command files to replace hts-split, hts-normalize, and hts-merge
-##
-
 #
 # Command script to take the 6 channels and build the 5.1 surround sound
 # for the video.
@@ -48,33 +39,25 @@
 # Reads fixvid.conf for:
 #     work_files    the prefix of filenames for work files
 #     video_title   added to the title metadata of the files
-#     channels      the filter used to join the channels into one stream
+#     channel_map     the filter used to split the stream into channels
+#     channel_list    the list of channels to process
+#     stereo_mix      the ratios for mixing surround sound to stereo
 #     timestamp     entered in the creation_time metadata for streams
-# Reads the 6 channel files made by hts-normalize:
-#     *-surround-efc.wav       The adjusted front center channel
-#     *-surround-efl.wav       The adjusted front left channel
-#     *-surround-efr.wav       The adjusted front right channel
-#     *-surround-elf.wav       The adjusted low frequency channel
-#     *-surround-esl.wav       The adjusted surround left channel
-#     *-surround-esl.wav       The adjusted surround right channel
+# Reads the channel files made by hts-normalize:
+#     *-surround-e*.wav       The normalized channel sound file
 #
 # Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
-# Generates 2 file:
-#     *-surround-adjusted.aac  The adjusted surround sound, AAC format
-#     *-surround-adjusted.ac3  The adjusted surround sound, AC3 format
+# Generates 4 file:
+#     *-surround-adjusted-merge-aac.log   The ffmpeg output
+#     *-surround-adjusted-merge-ac3.log   The ffmpeg output
+#     *-surround-adjusted.aac             Normailzed surround sound, AAC
+#     *-surround-adjusted.ac3             Normailzed surround sound, AC3
 #
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
-
-# Set the channels based on the chosen surround layout
-if [[ '5.1(side)' == $surround_layout ]]; then
-  channels=$channels_51_side;
-elif [[ '5.1' == $surround_layout ]]; then
-  channels=$channels_51;
-fi
 
 # Set the output filename base
 work_prefix="${work_files}-surround";
@@ -83,41 +66,54 @@ work_prefix="${work_files}-surround";
 # To rerun, delete the *_surround_adjusted.ac3 file first
 [[ -s "${work_prefix}-adjusted.ac3" ]] && exit 3;
 
+# Set the channel data based on the chosen surround layout
+# Invalid, or missing, layout will abort the process
+case "$surround_layout" in
+  '7.1' )
+    channel_map=$channel_map_71
+    channel_list=$channel_list_71
+    stereo_mix=$stereo_mix_71
+    ;;
+  '5.1' )
+    channel_map=$channel_map_51
+    channel_list=$channel_list_51
+    stereo_mix=$stereo_mix_51
+    ;;
+  '5.1(side)' )
+    channel_map=$channel_map_51_side
+    channel_list=$channel_list_51_side
+    stereo_mix=$stereo_mix_51_side
+    ;;
+  * )
+    exit 3
+    ;;
+esac
+
 # Check for all dependent files
 # Force hts-normalize to (re)make all if one is missing
-[[ ! -s "${work_prefix}-efc.wav" ]] || \
-[[ ! -s "${work_prefix}-efl.wav" ]] || \
-[[ ! -s "${work_prefix}-efr.wav" ]] || \
-[[ ! -s "${work_prefix}-elf.wav" ]] || \
-[[ ! -s "${work_prefix}-esl.wav" ]] || \
-[[ ! -s "${work_prefix}-esr.wav" ]] && \
-{
-  rm -f "${work_prefix}_efc.wav";
-  fixvid "hts-normalize";
+files_ready=0;
+for channel in $channel_list; do
+  [[ -s "${work_prefix}-e$channel.wav" ]] || files_ready=1;
+done
+[[ 0 = $files_ready ]] || {
+  rm -f "${work_prefix}-efc.wav";
+  echo "Normalized files not found.";
+  echo " ... Creating ...";
+  echo "";
+  time "$fixvid_dir/hts-normalize";
 }
 
-time bash -c "FFREPORT=file=\"fixvid-${work_prefix}-merge.log\":level=40 \
-ffmpeg -hide_banner -y -loglevel error -stats \
-$input_flags -i \"${work_prefix}-efc.wav\" \
-$input_flags -i \"${work_prefix}-efl.wav\" \
-$input_flags -i \"${work_prefix}-efr.wav\" \
-$input_flags -i \"${work_prefix}-elf.wav\" \
-$input_flags -i \"${work_prefix}-esl.wav\" \
-$input_flags -i \"${work_prefix}-esr.wav\" \
--filter_complex '\
-  [1:0][2:0][0:0][3:0][4:0][5:0] amerge=inputs=6 [CHANNELS];\
-  [CHANNELS] $channels [OUT];\
-  [OUT] asplit [INTERNAL][EXTERNAL]\
-' \
--map [EXTERNAL] \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title=\"5.1 Surround (Enhanced)\" \
--c:0 ac3 -b:a 640k \
-$use_threads $file_meta \
-\"${work_prefix}-adjusted.ac3\" \
--map [INTERNAL] \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title=\"5.1 Surround (Enhanced)\" \
--c:0 libfdk_aac -profile:a aac_he -b:a 384k \
-$use_threads $file_meta \
-\"${work_prefix}-adjusted.aac\"";
+channel_count=0;
+for channel in $channel_list; do
+  channel_pad="[$channel_count:0]";
+  channel_count=$(( $channel_count + 1 ));
+  pad_list="${pad_list}${channel_pad}";
+  channel_in="$input_flags -i ${work_prefix}-e${channel}.wav";
+  in_list="${in_list} ${channel_in}";
+done
+
+# multi_launch "Enhanced AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-merge-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $in_list -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $channel_map [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $use_threads $file_meta '${work_prefix}-adjusted.aac'";
+
+multi_launch "Enhanced AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-merge-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $in_list -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $channel_map [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround (Enhanced)' -c:0 ac3 -b:a 640k $use_threads $file_meta '${work_prefix}-adjusted.ac3'";
+
+wait
