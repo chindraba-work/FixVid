@@ -112,8 +112,7 @@ for channel in $channel_list; do
   in_list="${in_list} ${channel_in}";
 done
 
-# multi_launch "Enhanced AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-merge-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $in_list -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $channel_map [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $use_threads $file_meta '${work_prefix}-adjusted.aac'";
-
+multi_launch "Enhanced AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-merge-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $in_list -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $channel_map [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $use_threads $file_meta '${work_prefix}-adjusted.aac'";
 multi_launch "Enhanced AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-merge-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $in_list -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $channel_map [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround (Enhanced)' -c:0 ac3 -b:a 640k $use_threads $file_meta '${work_prefix}-adjusted.ac3'";
 
 wait

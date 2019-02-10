@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.1.1
+
+- Re-enable the AAC encoded files disabled for testing
+
 ### v0.1.0
 
 - Thread count has been reduced from 64 to 0 (auto).

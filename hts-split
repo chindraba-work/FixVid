@@ -109,7 +109,7 @@ done
 
 multi_launch "Channel split" bash -c "FFREPORT=file='fixvid-${work_prefix}-split-channels.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $surround_source -filter_complex '[0:$surround_stream] channelsplit=channel_layout=$surround_layout $pad_list' $out_list";
 multi_launch "Original AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-split-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $surround_source -map 0:$surround_stream $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround' -c:0 ac3 -b:a 640k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
-# multi_launch "Original AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-split-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $surround_source -map 0:$surround_stream $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
+multi_launch "Original AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-split-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $surround_source -map 0:$surround_stream $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='$surround_layout Surround' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
 
 wait
 
