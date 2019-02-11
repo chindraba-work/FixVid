@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -49,12 +49,17 @@
 # time command once finished.
 #
 # Generates 1 file:
-#     *_<label>.ass   The copied subtitles in Substation Alpha format
+#     *-<label>.ass   The copied subtitles in Substation Alpha format
 #                     <label>
 #
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || return 4;
+
+# Check for source file and replace with common source if missing
+if [[ 'x' == "x$subs_source" ]] && [[ -s $video_source ]]; then
+  subs_source=$video_source;
+fi
 
 # Set the output filename base
 work_prefix="${work_files}_subs_$subs_label";
@@ -63,7 +68,7 @@ work_prefix="${work_files}_subs_$subs_label";
 # To rerun, delete the created .ass file first
 [[ -s "${work_prefix}.ass" ]] && return 3;
 
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.log\":level=40 \
+time bash -c "FFREPORT=file=\"fixvid-${work_prefix}.log\":level=40 \
 ffmpeg -hide_banner -loglevel error -stats -y \
 $input_flags -i \"$subs_source\" \
 -map 0:$subs_stream \

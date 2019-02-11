@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -54,7 +54,7 @@
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Check for audio source (required)
-[[ -s "${work_files}_stereo_adjusted.aac" ]] || exit 4;
+[[ -s "${work_files}-stereo-adjusted.aac" ]] || exit 4;
 
 # Read the optional argument.
 [[ $1 ]] && video_group=$1 || video_group=0;
@@ -74,14 +74,6 @@ while [[ ${!var} ]]; do
   var="${group_prefix}_${group_key}_${group_limit}";
 done;
 
-# Find the last valid group number
-group_limit=1;
-var="video_codec_$group_limit";
-while [[ ${!var} ]]; do
-  ((group_limit++));
-  var="video_codec_$group_limit";
-done;
-
 [[ 0 = $video_group ]] && video_group=1;
 
 # Set the continue flag based on the validity of requested group ID
@@ -89,7 +81,7 @@ done;
 
 # Walk through the list of valid group IDs
 while [[ $continue ]]; do
-  # Load the group settings into the generic set for video extraction
+  # Load the group settings into the generic set for video rebuilding
   for item in $group_items; do
     var="${group_prefix}_${item}_${video_group}";
     declare ${group_prefix}_${item}="${!var}";

@@ -2,13 +2,13 @@
 
 ########################################################################
 #                                                                      #
-#  dts-build: create DTS sound files from AAC/ACS files                #
+#  subtitles-dvd: copy dvd_subtitles format subtitels from a souce     #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2019  Ronald Lamoreaux <code@chindraba.work>            #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -31,12 +31,14 @@
 ########################################################################
 
 #
-# Command script to create surround sound files in the DTS format using
-# the previously created AC3 files. Will only create both the regular
-# and adjusted versions if both versions exist in AC3 format. If either
-# version is missing, the script will abort.
+# Command script to copy the subtitles in dvd_subtitle format from the
+# source file creating a stand-alone MKV file to hold them for eventual
+# inclusion in the finished product.
+# Because of the need to make multiple versions of subtitles, this will
+# require a separate launcher with the ability to discriminate the
+# variables from the config file and options from the command line.
 #
-# Accepts no arguments.
+# Accepts no arguments:
 #
 # Reads fixvid.conf for:
 #     work_files      the prefix of filenames for work files
@@ -46,39 +48,31 @@
 # Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
-# Generates 4 files:
-#     fixvid-*-dts.cmd         The complete ffmpeg command to execute
-#     fixvid-*-dts.log         The captured output of the ffmpeg command
-#     *-surround.dts           The original soundtrack
-#     *-surround-adjusted.dts  The adjusted soundtrack
+# Generates 1 file:
+#     *-<label>.mkv   The copied subtitles in dvd_subtitle format
+#                     <label>
 #
 
 # Load the configuration file
-[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
+[[ -s fixvid.conf ]] && . fixvid.conf || return 4;
+
+# Check for source file and replace with common source if missing
+if [[ 'x' == "x$subs_source" ]] && [[ -s $video_source ]]; then
+  subs_source=$video_source;
+fi
 
 # Set the output filename base
-work_prefix="${work_files}-surround";
+work_prefix="${work_files}-subs-$subs_label";
 
 # Skip this if it has already been done.
-# To rerun, delete the *_stereo_adjusted.dts file first
-[[ -s "${work_prefix}-adjusted.dts" ]] && exit 3;
-
-# Verify that the source files exist, or exit
-[[ ! -s "${work_prefix}.ac3" ]] || [[ ! -s "${work_prefix}-adjusted.ac3" ]] && exit 3;
+# To rerun, delete the created .ass file first
+[[ -s "${work_prefix}.mkv" ]] && return 3;
 
 time bash -c "FFREPORT=file=\"fixvid-${work_prefix}.log\":level=40 \
-ffmpeg -hide_banner -y -loglevel error -stats \
-$input_flags -i '${work_prefix}.ac3' \
-$input_flags -i '${work_prefix}-adjusted.ac3' \
--map 0:0 \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title='Surround Sound' \
--c:0 dts -b:a 768k -strict -2 \
-$use_threads $output_flags \
-\"${work_prefix}.dts\" \
--map 1:0 \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title='Surround Sound (Enhanced)' \
--c:0 dts -b:a 768k -strict -2 \
-$use_threads $output_flags \
-\"${work_prefix}-adjusted.dts\"";
+ffmpeg -hide_banner -loglevel error -stats -y \
+$input_flags -i \"$subs_source\" \
+$strip_meta_all \
+-map 0:$subs_stream \
+-c:0 copy \
+$subtitles_only $use_threads $output_flags \
+\"$work_prefix.mkv\"";

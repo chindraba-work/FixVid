@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -30,15 +30,6 @@
 #                                                                      #
 ########################################################################
 
-##
-##      NOTE:
-##
-##  This file is only set up for processing of files related to a
-##  surround sound soundtrack of either 5.1 or 5.1(side). Any other type
-##  of surround sound setup, 7.1, etc., will require a complete set of
-##  command files to replace hts-split, hts-normalize, and hts-merge
-##
-
 #
 # Command script to normalize each of the independent channel files from
 # the surround sound soundtrack. Uses the files created by hts-split.
@@ -49,113 +40,96 @@
 # Reads fixvid.conf for:
 #     work_files      the prefix of filenames for work files
 #     video_title     added to the title metadata of the files
+#     channel_map     the filter used to split the stream into channels
+#     channel_list    the list of channels to process
+#     stereo_mix      the ratios for mixing surround sound to stereo
 #     timestamp       entered in the creation_time metadata for streams
 #     dyna_center     the filter to apply to the center channel
 #     dyna_front      the filter to apply to the left & right channels
 #     dyna_surround   the filter to apply to other channels
-# Reads the 6 channel files made by hts-split:
-#     *_surround_fc.wav     The front center channel from the source
-#     *_surround_fl.wav     The front left channel from the source
-#     *_surround_fr.wav     The front right channel from the source
-#     *_surround_lf.wav     The low frequency channel from the source
-#     *_surround_sl.wav     The surround left channel from the source
-#     *_surround_sr.wav     The surround right channel from the source
+#     channel_map     the filter used to split the stream into channels
+#     channel_list    the list of channels to process
+#     stereo_mix      the ratios for mixing surround sound to stereo
+# Reads the channel files made by hts-split:
+#     *-surround-*.wav     The channel from the source
 #
 # Displays the ffmpeg progress line while running and the results of the
 # time command once finished.
 #
-# Generates 8 files:
-#     fixvid_*_normal.cmd    The complete ffmpeg command to execute
-#     fixvid_*_normal.log    The captured output of the ffmpeg command
-#     *_surround_efc.wav     The front center channel from the source
-#     *_surround_efl.wav     The front left channel from the source
-#     *_surround_efr.wav     The front right channel from the source
-#     *_surround_elf.wav     The low frequency channel from the source
-#     *_surround_esl.wav     The surround left channel from the source
-#     *_surround_esl.wav     The surround right channel from the source
+# Generates 1 file plus 1 per channel:
+#     fixvid-*-normalize.log    The captured output of the ffmpeg command
+#     *-surround-*.wav          The normalized channel sound
 #
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Set the output filename base
-work_prefix="${work_files}_surround";
+work_prefix="${work_files}-surround";
 
 # Skip this if it has already been done.
 # To rerun, delete the *_surround_fce.wav file first
-[[ -s "${work_prefix}_fce.wav" ]] && exit 3;
+[[ -s "${work_prefix}_efc.wav" ]] && exit 3;
+
+# Set the channel data based on the chosen surround layout
+# Invalid, or missing, layout will abort the process
+case "$surround_layout" in
+  '7.1' )
+    channel_map=$channel_map_71
+    channel_list=$channel_list_71
+    stereo_mix=$stereo_mix_71
+    ;;
+  '5.1' )
+    channel_map=$channel_map_51
+    channel_list=$channel_list_51
+    stereo_mix=$stereo_mix_51
+    ;;
+  '5.1(side)' )
+    channel_map=$channel_map_51_side
+    channel_list=$channel_list_51_side
+    stereo_mix=$stereo_mix_51_side
+    ;;
+  * )
+    exit 3
+    ;;
+esac
 
 # Check for all dependent files
 # Force hts-split to (re)make all if one is missing
-[[ ! -s "${work_prefix}_fc.wav" ]] || \
-[[ ! -s "${work_prefix}_fl.wav" ]] || \
-[[ ! -s "${work_prefix}_fr.wav" ]] || \
-[[ ! -s "${work_prefix}_lf.wav" ]] || \
-[[ ! -s "${work_prefix}_sl.wav" ]] || \
-[[ ! -s "${work_prefix}_sr.wav" ]] && \
-{
-  rm -f "${work_prefix}_fc.wav";
-  fixvid "hts-split";
+files_ready=0;
+for channel in $channel_list; do
+  [[ -s "${work_prefix}-$channel.wav" ]] || files_ready=1;
+done
+[[ 0 = $files_ready ]] || {
+  rm -f "${work_prefix}-fc.wav";
+  echo "One, or more, of the channel files not found.";
+  echo "... Creating ...";
+  echo "";
+  time "$fixvid_dir/hts-split";
 }
 
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${work_prefix}_fc.wav\" \
--map 0:0 -af \"$dyna_center\" \
--c:0 pcm_s16le -b:a 384k \
-$use_threads $output_flags \
-\"${work_prefix}_efc.wav\"";
 
-cat "fixvid_${work_prefix}.part" > "fixvid_${work_prefix}_normalize.log";
+# Process the regular channel files and make the enhanced versions
+for channel in $channel_list; do
+  case "$channel" in
+    'fl' | 'fr' )
+      encoding="-map 0:0 -af $dyna_front -c:0 pcm_s16le -b:a 384k $use_threads $output_flags"
+      ;;
+    'fc' )
+      encoding="-map 0:0 -af $dyna_center -c:0 pcm_s16le -b:a 384k $use_threads $output_flags"
+      ;;
+    *)
+      encoding="-map 0:0 -af $dyna_surround -c:0 pcm_s16le -b:a 384k $use_threads $output_flags"
+      ;;
+  esac
+  multi_launch "${channel^^} channel" bash -c "FFREPORT=file='fixvid-${work_prefix}-${channel}.part':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-$channel.wav' $encoding '${work_prefix}-e$channel.wav'"
+done
 
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${work_prefix}_fl.wav\" \
--map 0:0 -af \"$dyna_front\" \
--c:0 pcm_s16le -b:a 384k \
-$use_threads $output_flags \
-\"${work_prefix}_efl.wav\"";
+wait
 
-cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
-
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${work_prefix}_fr.wav\" \
--map 0:0 -af \"$dyna_front\" \
--c:0 pcm_s16le -b:a 384k \
-$use_threads $output_flags \
-\"${work_prefix}_efr.wav\"";
-
-cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
-
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${work_prefix}_lf.wav\" \
--map 0:0 -af \"$dyna_surround\" \
--c:0 pcm_s16le -b:a 384k \
-$use_threads $output_flags \
-\"${work_prefix}_elf.wav\"";
-
-cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
-
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${work_prefix}_sl.wav\" \
--map 0:0 -af \"$dyna_surround\" \
--c:0 pcm_s16le -b:a 384k \
-$use_threads $output_flags \
-\"${work_prefix}_esl.wav\"";
-
-cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
-
-time bash -c "FFREPORT=file=\"fixvid_${work_prefix}.part\":level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i \"${work_prefix}_sr.wav\" \
--map 0:0 -af \"$dyna_surround\" \
--c:0 pcm_s16le -b:a 384k \
-$use_threads $output_flags \
-\"${work_prefix}_esr.wav\"";
-
-cat "fixvid_${work_prefix}.part" >> "fixvid_${work_prefix}_normalize.log";
-
-rm -f "fixvid_${work_prefix}.part"
+# Feed the individual log files into a single log file
+rm -f "fixvid-${work_prefix}-normalize.log";
+for channel in $channel_list; do
+  cat "fixvid-${work_prefix}-${channel}.part" >> "fixvid-${work_prefix}-normalize.log";
+  rm -f "fixvid-${work_prefix}-${channel}.part";
+done

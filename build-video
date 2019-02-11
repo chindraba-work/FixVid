@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -53,14 +53,14 @@
 # time command once finished.
 #
 # Generates 1 file:
-#     *_codec_<video_label>.mkv  The newly created video.
+#     *-codec-<video_label>.mkv  The newly created video.
 #
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || return 4;
 
 # Set the output filename base
-work_prefix="${work_files}_full_${video_codec}_${video_label}";
+work_prefix="${work_files}-full-${video_codec}-${video_label}";
 
 # Skip this if it has already been done.
 # To rerun, delete the *_full_??.mkv file first
@@ -70,10 +70,12 @@ work_prefix="${work_files}_full_${video_codec}_${video_label}";
 unset source_count;
 unset stream_count;
 unset subs_default;
+source_count=0;
+stream_count=0;
 
 # Add the video component (always available)
 source_list="$input_flags -i \
-\"${work_files}_video_${video_codec}_${video_label}.mkv\"";
+\"${work_files}-video-${video_codec}-${video_label}.mkv\"";
 stream_list="-map $source_count:0 -c:$stream_count copy \
 -metadata:s:$stream_count language=eng \
 -metadata:s:$stream_count title=\"$video_title\" \
@@ -83,7 +85,7 @@ stream_count=$((++stream_count));
 
 # Add the enhanced stereo component (always available)
 source_list="$source_list \
-$input_flags -i \"${work_files}_stereo_adjusted.aac\"";
+$input_flags -i \"${work_files}-stereo-adjusted.aac\"";
 stream_list="$stream_list \\
 -map $source_count:0 -c:$stream_count copy \\
 -metadata:s:$stream_count language=eng \
@@ -95,15 +97,21 @@ stream_count=$((++stream_count));
 # Add in the subtitles
 # All versions get all available subtitle streams
 subs_group=1;
-check_var="subs_source_$subs_group";
+check_var="subs_stream_$subs_group";
 while [[ ${!check_var} ]]; do
-  for item in label title included SDH; do
+  for item in label title included SDH type; do
     param_var="subs_${item}_${subs_group}";
     declare subs_$item="${!param_var}";
   done
-  if [[ $subs_included ]] && [[ -s "${work_files}_subs_${subs_label}.ass" ]]; then
+  if [[ 'text' == ${subs_type,,} ]]; then
+    sub_ext='ass';
+  elif [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
+    subs_ext='mkv';
+  fi
+  if [[ $subs_included ]] \
+      && [[ -s "${work_files}-subs-${subs_label}.$subs_ext" ]]; then
     source_list="$source_list \
-    $input_flags -i \"${work_files}_subs_${subs_label}.ass\"";
+    $input_flags -i \"${work_files}-subs-${subs_label}.$subs_ext\"";
     stream_list="$stream_list \
     -map $source_count:0 -c:$stream_count copy \
     -metadata:s:$stream_count language=eng \
@@ -128,7 +136,7 @@ while [[ ${!check_var} ]]; do
 done
 
 # Add the chapter source file, if any
-if [[ $chapter_file ]] && [[ -s $chapter_file ]]; then
+if [[ "$chapter_file" ]] && [[ -s "$chapter_file" ]]; then
   source_list="$source_list \
   -i \"$chapter_file\"";
   stream_list="$stream_list \\
@@ -137,7 +145,7 @@ if [[ $chapter_file ]] && [[ -s $chapter_file ]]; then
   stream_count=$((++stream_count));
 fi
 
-time bash -c "FFREPORT=file='fixvid_${work_prefix}.log':level=40 \
+time bash -c "FFREPORT=file='fixvid-${work_prefix}.log':level=40 \
 ffmpeg -hide_banner -loglevel quiet -stats -y \
 $source_list \
 $stream_list \

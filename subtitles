@@ -8,7 +8,7 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018  Ronald Lamoreaux <code@chindraba.work>            #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -66,7 +66,7 @@
 [[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
 
 group_prefix="subs";
-group_key="source";
+group_key="stream";
 group_items="source stream label title type";
 
 # Find the last valid group number
@@ -95,6 +95,9 @@ while [[ $continue ]]; do
   # are needed or discoverd, along with the script to handle them.
   if [[ 'text' == ${subs_type,,} ]]; then
     source "$fixvid_dir/subtitles-text";
+  fi
+  if [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
+    source "$fixvid_dir/subtitles-dvd";
   fi
   (( group_num++ ));
   # Check for completion
