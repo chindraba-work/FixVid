@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.1.2
+
+- Add overlooked changes in command files
+
 ### v0.1.1
 
 - Re-enable the AAC encoded files disabled for testing
