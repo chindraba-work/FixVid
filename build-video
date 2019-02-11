@@ -104,7 +104,7 @@ while [[ ${!check_var} ]]; do
     declare subs_$item="${!param_var}";
   done
   if [[ 'text' == ${subs_type,,} ]]; then
-    sub_ext='ass';
+    subs_ext='ass';
   elif [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
     subs_ext='mkv';
   fi
