@@ -57,42 +57,19 @@
 # Generates 0 files:
 #
 
+group='video';
+required='codec';
+group_fields='label codec params equalizer adjust complex';
+
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Read the optional argument.
-[[ $1 ]] && group_num=$1 || group_num=0;
+[[ $1 ]] && traget_num=$1 || traget_num=0;
 
-# Flag to process, or not, all setting groups
-[[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
-
-group_prefix="video";
-group_key="codec";
-group_items="label codec params equalizer adjust complex";
-
-# Find the last valid group number
-group_limit=1;
-var="${group_prefix}_${group_key}_${group_limit}";
-while [[ ${!var} ]]; do
-  ((group_limit++));
-  var="${group_prefix}_${group_key}_${group_limit}";
-done;
-
-[[ 0 = $group_num ]] && group_num=1;
-
-# Set the continue flag based on the validity of requested group number
-[[ $group_num < $group_limit ]] && continue=1 || unset continue;
-
-# Walk through the list of valid group numbers
-while [[ $continue ]]; do
-  # Load the group settings into the generic set for video extraction
-  for item in $group_items; do
-    var="${group_prefix}_${item}_${group_num}";
-    declare ${group_prefix}_${item}="${!var}";
-  done
-  # Do the video extraction for this group
+# The function to extract the video file(s)
+function get_video {
   source "$fixvid_dir/extract-video";
-  (( group_num++ ));
-  # Check for completion
-  [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;
-done
+}
+
+process_group get_video $group $required $traget_num $group_fields;

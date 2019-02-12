@@ -56,6 +56,39 @@
 #     *-codec-<video_label>.mkv  The newly created video.
 #
 
+# Function to add each available version of the subtitles
+function add_subs {
+  if [[ 'text' == ${subs_type,,} ]]; then
+    subs_ext='ass';
+  elif [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
+    subs_ext='mkv';
+  fi
+  if [[ $subs_included ]] \
+      && [[ -s "${work_files}-subs-${subs_label}.$subs_ext" ]]; then
+    source_list="$source_list \
+    $input_flags -i \"${work_files}-subs-${subs_label}.$subs_ext\"";
+    stream_list="$stream_list \
+    -map $source_count:0 -c:$stream_count copy \
+    -metadata:s:$stream_count language=eng \
+    -metadata:s:$stream_count title=\"$subs_title\"";
+    if [[ $subs_SDH ]]; then
+      stream_list="$stream_list \
+      -disposition:$stream_count hearing_impaired";
+    fi
+    if [[ $subs_default ]]; then
+      stream_list="$stream_list \
+      -disposition:$stream_count -default";
+    else
+      stream_list="$stream_list \
+      -disposition:$stream_count +default";
+      subs_default=$subs_group;
+    fi
+    source_count=$((++source_count));
+    stream_count=$((++stream_count));
+  fi
+}
+
+
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || return 4;
 
@@ -96,44 +129,8 @@ stream_count=$((++stream_count));
 
 # Add in the subtitles
 # All versions get all available subtitle streams
-subs_group=1;
-check_var="subs_stream_$subs_group";
-while [[ ${!check_var} ]]; do
-  for item in label title included SDH type; do
-    param_var="subs_${item}_${subs_group}";
-    declare subs_$item="${!param_var}";
-  done
-  if [[ 'text' == ${subs_type,,} ]]; then
-    subs_ext='ass';
-  elif [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
-    subs_ext='mkv';
-  fi
-  if [[ $subs_included ]] \
-      && [[ -s "${work_files}-subs-${subs_label}.$subs_ext" ]]; then
-    source_list="$source_list \
-    $input_flags -i \"${work_files}-subs-${subs_label}.$subs_ext\"";
-    stream_list="$stream_list \
-    -map $source_count:0 -c:$stream_count copy \
-    -metadata:s:$stream_count language=eng \
-    -metadata:s:$stream_count title=\"$subs_title\"";
-    if [[ $subs_SDH ]]; then
-      stream_list="$stream_list \
-      -disposition:$stream_count hearing_impaired";
-    fi
-    if [[ $subs_default ]]; then
-      stream_list="$stream_list \
-      -disposition:$stream_count -default";
-    else
-      stream_list="$stream_list \
-      -disposition:$stream_count +default";
-      subs_default=$subs_group;
-    fi
-    source_count=$((++source_count));
-    stream_count=$((++stream_count));
-  fi
-  ((subs_group++));
-  check_var="subs_source_$subs_group";
-done
+
+process_group add_subs 'subs' 'stream' 0 'label' 'title' 'included' 'SDH' 'type';
 
 # Add the chapter source file, if any
 if [[ "$chapter_file" ]] && [[ -s "$chapter_file" ]]; then

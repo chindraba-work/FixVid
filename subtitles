@@ -56,50 +56,32 @@
 # Generates 0 files:
 #
 
+group='subs';
+required='stream';
+group_fields='source stream label title type included';
+
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Read the optional argument.
-[[ $1 ]] && group_num=$1 || group_num=0;
+[[ $1 ]] && traget_num=$1 || traget_num=0;
 
-# Flag to process, or not, all setting groups
-[[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
+# The function to extract the subtitle file(s)
+function get_subtitles {
+  case ${subs_type,,} in
+    'text' )
+      source "$fixvid_dir/subtitles-text"
+      ;;
+    'dvd_subtitle' | \
+    'dvd_subtitles' )
+      source "$fixvid_dir/subtitles-dvd"
+      ;;
+    * )
+      exit 3
+      ;;
+  esac
+}
 
-group_prefix="subs";
-group_key="stream";
-group_items="source stream label title type";
+process_group get_subtitles $group $required $traget_num $group_fields;
 
-# Find the last valid group number
-group_limit=1;
-var="${group_prefix}_${group_key}_${group_limit}";
-while [[ ${!var} ]]; do
-  ((group_limit++));
-  var="${group_prefix}_${group_key}_${group_limit}";
-done;
 
-[[ 0 = $group_num ]] && group_num=1;
-
-# Set the continue flag based on the validity of requested group ID
-[[ $group_num < $group_limit ]] && continue=1 || unset continue;
-
-# Walk through the list of valid group IDs
-while [[ $continue ]]; do
-  # Load the group settings into the generic set for subtitle creation
-  for item in $group_items; do
-    var="${group_prefix}_${item}_${group_num}";
-    declare ${group_prefix}_${item}="${!var}";
-  done
-  # Do the subtitle creation for this group
-  # TODO
-  # Add conditional branches for different subtitle source types as they
-  # are needed or discoverd, along with the script to handle them.
-  if [[ 'text' == ${subs_type,,} ]]; then
-    source "$fixvid_dir/subtitles-text";
-  fi
-  if [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
-    source "$fixvid_dir/subtitles-dvd";
-  fi
-  (( group_num++ ));
-  # Check for completion
-  [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;
-done

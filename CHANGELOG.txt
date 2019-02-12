@@ -2,6 +2,10 @@ SmallSite
 
 Changelog
 
+v0.2.1
+
+    - Factor out group processing for video and subtitles
+
 v0.1.2
 
     - Add overlooked changes in command files

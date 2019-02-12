@@ -124,6 +124,49 @@ fi
 }
 export -f multi_launch;
 
+# Function to determine which groups of settings are valid and which
+# ones to process. Then process any of the items that should be done
+
+function process_group {
+  process_item=$1; # The passed-in function to process the items with
+  shift;
+  group_prefix="$1";
+  shift;
+  group_key="$1";
+  shift
+  [[ $1 ]] && group_num=$1 || group_num=0;
+  shift
+
+  # Flag to process, or not, all setting groups
+  [[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
+
+  # Find the last valid group number
+  group_limit=1;
+  var="${group_prefix}_${group_key}_${group_limit}";
+  while [[ ${!var} ]]; do
+    ((group_limit++));
+    var="${group_prefix}_${group_key}_${group_limit}";
+  done;
+
+  # Initialize the group_num, if needed
+  [[ 0 = $group_num ]] && group_num=1;
+
+  # Set the continue flag based on the validity of requested group number
+  [[ $group_num < $group_limit ]] && continue=1 || unset continue;
+  while [[ $continue ]]; do
+    # Load the group settings into the generic set of settings
+    for item in "$@"; do
+      var="${group_prefix}_${item}_${group_num}";
+      declare ${group_prefix}_${item}="${!var}";
+    done
+    $process_item;
+    (( group_num++ ));
+    # Check for completion
+    [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;
+  done
+}
+
+export -f process_group;
 
 # Call the command passed in, forwarding all other command line args
 time $fixvid_dir/$command_check "$@";
