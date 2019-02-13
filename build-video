@@ -58,34 +58,61 @@
 
 # Function to add each available version of the subtitles
 function add_subs {
-  if [[ 'text' == ${subs_type,,} ]]; then
-    subs_ext='ass';
-  elif [[ 'dvd_subtitle' == ${subs_type,,} ]]; then
-    subs_ext='mkv';
+  # Set the file extension based on subtitle type
+  case ${subs_type,,} in
+    text|subrip|srt|ass|aas  )
+      subs_ext='ass';
+      ;;
+    dvd_sub*|vobsub )
+      subs_ext='mkv';
+      ;;
+    * )
+      return 3
+      ;;
+  esac
+  # Check for needed file and that this version is included
+  if [[ -s "${work_files}-subs-${subs_label}.$subs_ext" ]]; then
+    echo "Found ${work_files}-subs-${subs_label}.$subs_ext";
+  else
+    echo "${work_files}-subs-${subs_label}.$subs_ext NOT found";
   fi
-  if [[ $subs_included ]] \
-      && [[ -s "${work_files}-subs-${subs_label}.$subs_ext" ]]; then
-    source_list="$source_list \
-    $input_flags -i \"${work_files}-subs-${subs_label}.$subs_ext\"";
+  if [[ $subs_included ]]; then
+    echo "Including subs $subs_label";
+  else
+    echo "Skipping subs $subs_label";
+  fi
+  if [[ -s "${work_files}-subs-${subs_label}.$subs_ext" ]] \
+    && [[ $subs_included ]]; then
+    echo "All good"
+  else
+    echo "Not happening";
+  fi
+  [[ -s "${work_files}-subs-${subs_label}.$subs_ext" ]] \
+    && [[ $subs_included ]] || return 3;
+echo "Moving on with $group_num: $subs_label";
+  # Check for, and set the language for the subtitles
+  [[ $subs_lang ]] || subs_lang="$video_lang";
+
+  source_list="$source_list \
+  $input_flags -i '${work_files}-subs-${subs_label}.$subs_ext'";
+  stream_list="$stream_list \
+  -map $source_count:0 -c:$stream_count copy \
+  -metadata:s:$stream_count language='$subs_lang' \
+  -metadata:s:$stream_count title='$subs_title'";
+  if [[ $subs_SDH ]]; then
     stream_list="$stream_list \
-    -map $source_count:0 -c:$stream_count copy \
-    -metadata:s:$stream_count language=eng \
-    -metadata:s:$stream_count title=\"$subs_title\"";
-    if [[ $subs_SDH ]]; then
-      stream_list="$stream_list \
-      -disposition:$stream_count hearing_impaired";
-    fi
-    if [[ $subs_default ]]; then
-      stream_list="$stream_list \
-      -disposition:$stream_count -default";
-    else
-      stream_list="$stream_list \
-      -disposition:$stream_count +default";
-      subs_default=$subs_group;
-    fi
-    source_count=$((++source_count));
-    stream_count=$((++stream_count));
+    -disposition:$stream_count hearing_impaired";
   fi
+  if [[ $subs_default ]]; then
+    stream_list="$stream_list \
+    -disposition:$stream_count -default";
+  else
+    stream_list="$stream_list \
+    -disposition:$stream_count +default";
+    subs_default=$subs_group;
+  fi
+  source_count=$((++source_count));
+  stream_count=$((++stream_count));
 }
 
 
@@ -110,7 +137,7 @@ stream_count=0;
 source_list="$input_flags -i \
 \"${work_files}-video-${video_codec}-${video_label}.mkv\"";
 stream_list="-map $source_count:0 -c:$stream_count copy \
--metadata:s:$stream_count language=eng \
+-metadata:s:$stream_count language=$video_lang \
 -metadata:s:$stream_count title=\"$video_title\" \
 -disposition:$stream_count +default";
 source_count=$((++source_count));
@@ -130,7 +157,12 @@ stream_count=$((++stream_count));
 # Add in the subtitles
 # All versions get all available subtitle streams
 
-process_group add_subs 'subs' 'stream' 0 'label' 'title' 'included' 'SDH' 'type';
+group='subs';
+required='stream';
+traget_num=0;
+group_fields='label title included SDH type lang';
+
+process_group add_subs $group $required $traget_num $group_fields;
 
 # Add the chapter source file, if any
 if [[ "$chapter_file" ]] && [[ -s "$chapter_file" ]]; then

@@ -32,7 +32,7 @@
 
 #
 # Command script to launch subtitle creation commands with all the
-# proper parameters set. May launch the extraction multiple time if
+# proper parameters set. May launch the extraction multiple times if
 # there are multiple occurrences of the configuration variables.
 #
 # Accepts 1 optional argument:
@@ -58,7 +58,7 @@
 
 group='subs';
 required='stream';
-group_fields='source stream label title type included';
+group_fields='source stream label title type lang';
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
@@ -68,13 +68,19 @@ group_fields='source stream label title type included';
 
 # The function to extract the subtitle file(s)
 function get_subtitles {
+  # Check for, and set the source file
+  [[ $subs_source ]] || subs_source="$video_source";
+  # Check for, and set the language for the subtitles
+  [[ $subs_lang ]] || subs_lang="$video_lang";
+  # Set the output filename base
+  work_prefix="${work_files}-subs-$subs_label";
+
   case ${subs_type,,} in
-    'text' )
-      source "$fixvid_dir/subtitles-text"
+    text|subrip|srt|ass|aas  )
+      source "$fixvid_dir/extract-subtitles-text"
       ;;
-    'dvd_subtitle' | \
-    'dvd_subtitles' )
-      source "$fixvid_dir/subtitles-dvd"
+    dvd_sub*|vobsub )
+      source "$fixvid_dir/extract-subtitles-dvd"
       ;;
     * )
       exit 3
@@ -84,4 +90,4 @@ function get_subtitles {
 
 process_group get_subtitles $group $required $traget_num $group_fields;
 
-
+wait;

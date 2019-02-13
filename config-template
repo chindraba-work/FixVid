@@ -102,7 +102,7 @@ video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level
 # video_adjust_1='[VIN] scale=1920x796,setsar=1/1 [VOUT]';
 # video_adjust_1='[VIN] crop=1920:754 [CROP];[CROP] scale=1280x504,setsar=1/1 [VOUT]';
 # This parameter is optional, uncomment if needed, see above
-# video_complex_1="1";
+# video_complex_1=1;
 
 # A second, third, etc. group of settings can be used by repeating the
 # set of variables above, replacing the digit "1" with "2", and so on.
@@ -115,7 +115,7 @@ video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level
 # video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high -pix_fmt yuv420p";
 # video_equalizer_2='';
 # video_adjust_2='';
-# video_complex_2="";
+# video_complex_2=1;
 
 ########################################################################
 #
@@ -173,7 +173,7 @@ dyna_surround='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
 #
 # File that has the subtitles to use as the final subtitle stream
 # subs_source_1='movie';
-subs_stream_1='2';
+subs_stream_1=2;
 
 # The label used in the filename to separate one set of subtitles from
 # any others.
@@ -189,6 +189,9 @@ subs_stream_1='2';
 # automatically
 subs_label_1='DEFAULT';
 
+# The 3-letter language code for the language the subtitles are in
+subs_lang_1='eng';
+
 # The title of the subtitles, as shown by most media players when the
 # user selects subtitles from the menu
 subs_title_1='Standard subtitles';
@@ -197,24 +200,24 @@ subs_title_1='Standard subtitles';
 subs_type_1='dvd_subtitle';
 # Are these subtitles to be included in the final product video?
 # Leave commented to prevent them from being included.
-subs_included_1='1';
+subs_included_1=1;
 
 # Setting to show that this is a 'Hearing-Impaired' subtitle stream.
 # Not required, but having it set will allow the stream to be marked as
 # Hearing-Impaired in the final product in the event that a player is
 # set up to always choose such subtitles over other defaults.
-# subs_SDH_1='1';
+# subs_SDH_1=1;
 
 # Additional sets of subtitles may be created by using increasing
 # numbers for each set of parameters. All parameters are needed for the
 # system to create the subtitles described.
 # subs_source_2='movie.mkv';
-# subs_stream_2='3';
+# subs_stream_2=3;
 # subs_label_2='DEFAULT';
 # subs_title_2='Standard Subtitles';
 # subs_type_2='text';
-# subs_included_2='1';
-# subs_SDH_2='1';
+# subs_included_2=1;
+# subs_SDH_2=1;
 
 # Flag to allow converting to the nVidia encoders
 enable_nvidia=true;
@@ -236,10 +239,10 @@ max_parallel=8;
 surround_layout='5.1(side)';
 
 # The "time" when this was all collected and remuxed.
-timestamp='2018-10-31T13:21:08.69Z';
+timestamp=2018-10-31T13:21:08.69Z;
 
 # Year the video was produced/released
-video_year='2018';
+video_year=2018;
 
 # Name used as the prefix for work files, use shell-safe names
 work_files="stream";
@@ -251,3 +254,4 @@ final_files="Final";
 # To use a double quote in the title use triple-escape, \\\"
 video_title="Video Title";
 
+video_lang="eng";

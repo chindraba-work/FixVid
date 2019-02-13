@@ -101,8 +101,15 @@ export use_threads="-threads 0";
 export strip_meta_only="-map_metadata -1";
 # ffmpeg to strip the metadata from the input file, including chapter times
 export strip_meta_all="-map_metadata -1 -map_chapters -1";
-export file_meta="-metadata creation_time='$timestamp' \
--metadata language=eng -metadata title='$video_title'"
+# Default language for metadata
+export video_lang="und"
+
+# Load the configuration file if it exists
+[[ -s fixvid.conf ]] && . fixvid.conf;
+
+export file_meta="-metadata creation_time=$timestamp \
+-metadata language=$video_lang -metadata title='$video_title'"
+
 # Function to utilize multiple cores better
 # Sourced from an answer to "How do you run multiple programs in
 # parallel from a bash script?" on Stack Overflow. See:
@@ -155,7 +162,7 @@ function process_group {
   [[ $group_num < $group_limit ]] && continue=1 || unset continue;
   while [[ $continue ]]; do
     # Load the group settings into the generic set of settings
-    for item in "$@"; do
+    for item in $@; do
       var="${group_prefix}_${item}_${group_num}";
       declare ${group_prefix}_${item}="${!var}";
     done
