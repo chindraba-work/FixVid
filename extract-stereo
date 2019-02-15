@@ -2,8 +2,8 @@
 
 ########################################################################
 #                                                                      #
-#  stereo: script to create external stereo sound files, in original   #
-#  sound and with normalized, 'enhanced', sound.                       #
+#  extract-stereo: extract a stereo soundtrack from a souce and        #
+#  modify it.                                                          #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
@@ -32,8 +32,9 @@
 ########################################################################
 
 #
-# Command script to extract, and enhance, the stereo soundtrack from a
-# file.
+# Command script to extract the stereo soundtrack from a source file,
+# and save it in four files: AAC encoded and AC3 encoded versions of
+# the 'original' soundtrack and the normalized version
 #
 
 # Load the configuration file

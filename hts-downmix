@@ -2,7 +2,7 @@
 
 ########################################################################
 #                                                                      #
-#  hts-stereo: create a stereo sound file from a surround sound souce  #
+#  hts-downmix: create a stereo stream from a surround sound stream    #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #

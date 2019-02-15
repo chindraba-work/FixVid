@@ -36,19 +36,22 @@
 # occurrences of the video configuration variables.
 #
 
-group='video';
-required='codec';
-group_fields='label codec params equalizer adjust complex';
-
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
-# Read the optional argument.
-[[ $1 ]] && traget_num=$1 || traget_num=0;
+# Load the helper functions and common settings
+source "$fixvid_dir/helpers";
+
+group='video';
+required='codec';
+group_fields='label codec params equalizer adjust complex';
 
 # The function to extract the video file(s)
 function get_video {
   source "$fixvid_dir/extract-video";
 }
+
+# Read the optional argument.
+[[ $1 ]] && traget_num=$1 || traget_num=0;
 
 process_group get_video $group $required $traget_num $group_fields;

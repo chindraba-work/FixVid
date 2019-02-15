@@ -2,7 +2,7 @@
 
 ########################################################################
 #                                                                      #
-#  hts-split: extract individual channel sound files from source       #
+#  hts-explode: extract individual channel sound files from source     #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #

@@ -55,13 +55,20 @@ Available commands are:
         the lines pertinent to the file's duration, chapter list, and
         each stream located in the file.
 
-    hts-merge
-        Combine individual channel files into a single 5.1 surround
-        sound soundtrack, saving internal use and external copies of the
-        adjusted soundtrack. If any of the needed files are absent,
-        will force a run of hts-normalize.
-            Requires: <prefix>-surround_e<ch>.wav
-            Skips on: <prefix>-surround-adjusted.ac3
+    hts-downmix
+        Create a stereo soundtrack from the 5.1 surround sound
+        soundtrack, save unadjusted versions and adjusted versions of
+        the new stereo soundtrack.
+            Requires: surround_source file
+            Skips on: <prefix>-adjusted.aac
+
+    hts-explode
+        Extract the 5.1 surround sound soundtrack from the file, save
+        the unmodified versions and split the soundtrack into individual
+        channel files for further processing via hts-normalize and
+        hts-merge.
+            Requires: surround_source file
+            Skips on: <prefix>-surround-<ch>.wav
 
     hts-normalize
         Apply normalization filters to each of the 5.1 surround sound
@@ -71,20 +78,13 @@ Available commands are:
             Requires: <prefix>-surround-<ch>.wav
             Skips on: <prefix>-surround-e<ch>.wav
 
-    hts-split
-        Extract the 5.1 surround sound soundtrack from the file, save
-        the unmodified versions and split the soundtrack into individual
-        channel files for further processing via hts-normalize and
-        hts-merge.
-            Requires: surround_source file
-            Skips on: <prefix>-surround-<ch>.wav
-
-    hts-stereo
-        Create a stereo soundtrack from the 5.1 surround sound
-        soundtrack, save unadjusted versions and adjusted versions of
-        the new stereo soundtrack.
-            Requires: surround_source file
-            Skips on: <prefix>-adjusted.aac
+    hts-remix
+        Combine individual channel files into a single 5.1 surround
+        sound soundtrack, saving internal use and external copies of the
+        adjusted soundtrack. If any of the needed files are absent,
+        will force a run of hts-normalize.
+            Requires: <prefix>-surround_e<ch>.wav
+            Skips on: <prefix>-surround-adjusted.ac3
 
     init
         Create the empty fixvid.conf file in the directory and scan for

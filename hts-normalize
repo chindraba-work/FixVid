@@ -70,7 +70,7 @@ case "$surround_layout" in
 esac
 
 # Check for all dependent files
-# Force hts-split to (re)make all if one is missing
+# Force hts-explode to (re)make all if one is missing
 files_ready=0;
 for channel in $channel_list; do
   [[ -s "${work_prefix}-$channel.wav" ]] || files_ready=1;
@@ -80,7 +80,7 @@ done
   echo "One, or more, of the channel files not found.";
   echo "... Creating ...";
   echo "";
-  time "$fixvid_dir/hts-split";
+  "$fixvid_dir/hts-explode";
 }
 
 

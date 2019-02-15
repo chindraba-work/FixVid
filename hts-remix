@@ -2,7 +2,7 @@
 
 ########################################################################
 #                                                                      #
-#  hts-merge: combine individual channel files into one soundtrack     #
+#  hts-remix: combine normalized channel files into one stream         #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
@@ -31,8 +31,8 @@
 ########################################################################
 
 #
-# Command script to take the 6 channels and build the 5.1 surround sound
-# for the video.
+# Command script to take the normalized individual channels and remix
+# the surround sound for the video.
 #
 
 # Load the configuration file
@@ -79,7 +79,7 @@ done
   echo "Normalized files not found.";
   echo " ... Creating ...";
   echo "";
-  time "$fixvid_dir/hts-normalize";
+  "$fixvid_dir/hts-normalize";
 }
 
 channel_count=0;

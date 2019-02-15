@@ -39,9 +39,6 @@
 # the config file and options from the command line.
 #
 
-# Load the configuration file
-[[ -s fixvid.conf ]] && . fixvid.conf || return 4;
-
 # Set the proper codec for ffmpeg to use from that supplied
 v_codec=${video_codec,,};
 [[ $enable_nvidia ]] && [[ $v_codec =~ hevc|h264 ]] && v_codec="${v_codec}_nvenc";
@@ -56,34 +53,34 @@ work_prefix="${work_files}-video-${video_codec}-${video_label}";
 # Build the video mapping and filter line
 if [[ $video_adjust ]] && [[ $video_complex ]]; then
   # Always use the yadif 'yet another de-interlace filter' filter
-  map_line="-filter_complex '[0:${video_stream}] yadif";
+  filtering="-filter_complex '[0:${video_stream}] yadif";
   # Apply the equalizer settings, if any
   [[ $video_equalizer ]] \
-    && map_line="${map_line} [VEQ];[VEQ] ${video_equalizer}";
+    && filtering="${filtering} [VEQ];[VEQ] ${video_equalizer}";
   # Add in the other adjustments to the video, should be for setting the
   # size, sar (screen aspect ratio), dar (display aspect ratio), etc.,
   # but can also be used for more complex effects, including cropping
   # and letterbox formatting, or removing old letterbox formatting.
-  map_line="${map_line} [VIN];${video_adjust}' -map [VOUT]";
+  filtering="${filtering} [VIN];${video_adjust}' -map [VOUT]";
 else
   # Always use the yadif 'yet another de-interlace filter' filter
-  map_line="-map 0:$video_stream -vf 'yadif";
+  filtering="-vf 'yadif";
   # Apply the equalizer settings, if any
-  [[ $video_equalizer ]] && map_line="${map_line},${video_equalizer}";
+  [[ $video_equalizer ]] && filtering="${filtering},${video_equalizer}";
   # Add in the other adjustments to the video, should be for setting the
   # size, sar (screen aspect ratio), dar (display aspect ratio), etc.,
   # but can also be used for more complex effects, including cropping
   # and letterbox formatting, or removing old letterbox formatting.
-  [[ $video_adjust ]] && map_line="${map_line},${video_adjust}";
-  map_line="${map_line}'";
+  [[ $video_adjust ]] && filtering="${filtering},${video_adjust}";
+  filtering="${filtering}' -map 0:$video_stream";
 fi
 
-time bash -c "FFREPORT=file=\"fixvid-${work_prefix}.log\":level=40 \
+time bash -c "FFREPORT=file='fixvid-${work_prefix}.log':level=40 \
 ffmpeg -hide_banner -y -loglevel error -stats \
-$input_flags -i \"$video_source\" \
-$map_line \
+$input_flags -i '$video_source' \
+$filtering \
 $strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title=\"$video_title\" \
+-metadata:s:0 language=$video_lang -metadata:s:0 title='$video_title' \
 -c:0 $v_codec $video_params \
 $video_only $use_threads $output_flags \
-\"${work_prefix}.mkv\"";
+'${work_prefix}.mkv'";

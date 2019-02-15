@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# Create and export some text shortcuts and functions to use later.
+#
+# ffmpeg for ignoring all but the chosen type of stream
+audio_only="-vn -sn -dn";
+video_only="-an -sn -dn";
+subtitles_only="-vn -an -dn";
+# ffmpeg to ignore input timestamps, and force creation of new ones
+input_flags="-fflags +igndts";
+output_flags="-fflags +genpts";
+# ffmpeg to leverage the multi-threading of the CPU, for aware libraries
+use_threads="-threads 0";
+# ffmpeg to strip the metadata from the input file, except chapter times
+strip_meta_only="-map_metadata -1";
+# ffmpeg to strip the metadata from the input file, including chapter times
+strip_meta_all="-map_metadata -1 -map_chapters -1";
+file_meta="-metadata creation_time=$timestamp \
+-metadata language=$video_lang -metadata title='$video_title'"
+
+# Function to utilize multiple cores better
+# Sourced from an answer to "How do you run multiple programs in
+# parallel from a bash script?" on Stack Overflow. See:
+# https://stackoverflow.com/a/42098494/7412956
+# From user https://stackoverflow.com/users/2615062
+# All Stack Overflow contributions licensed under cc by-sa 3.0 with
+# attribution required.
+function multi_launch {
+local ident=$1;
+shift;
+echo "Processing $ident ...";
+"$@" && echo "... $ident complete" &
+local my_pid=$$
+local parallels=$(ps -eo ppid | grep -w $my_pid | wc -w)
+parallels=$((parallels-1))
+if [[ $parallels -ge $max_parallel ]]; then
+    wait -n
+fi
+}
+
+# Function to determine which groups of settings are valid and which
+# ones to process. Then process any of the fields that should be done
+function process_group {
+  item_process=$1; # The passed-in function to process the fields with
+  shift;
+  group_prefix="$1";
+  shift;
+  group_key="$1";
+  shift
+  [[ $1 ]] && group_num=$1 || group_num=0;
+  shift
+  field_list="$@";
+
+  # Flag to process, or not, all setting groups
+  [[ 0 = $group_num ]] && group_all=1 || unset group_all;
+
+  # Find the last valid group number
+  group_limit=1;
+  var="${group_prefix}_${group_key}_${group_limit}";
+  while [[ ${!var} ]]; do
+    ((group_limit++));
+    var="${group_prefix}_${group_key}_${group_limit}";
+  done;
+  # Initialize the group_num, if needed
+  [[ 0 = $group_num ]] && group_num=1;
+  # Set the group_continue flag based on the validity of requested number
+  [[ $group_num < $group_limit ]] && group_continue=1 || unset group_continue;
+  while [[ $group_continue ]]; do
+    # Load the group settings into the generic set of settings
+    for field in $field_list; do
+      unset "${group_prefix}_${field}";
+      var="${group_prefix}_${field}_${group_num}";
+      declare ${group_prefix}_${field}="${!var}";
+    done
+    for key in limit num all continue; do
+      var="group_$key";
+      declare ${group_prefix}_$key="${!var}";
+    done;
+    $item_process || return $x;
+    for key in limit num all continue; do
+      var="${group}_$key";
+      declare group_$key="${!var}";
+    done;
+    (( group_num++ ));
+    # Check for completion
+    [[ $group_all ]] && [[ $group_num < $group_limit ]] && group_continue=1 || unset group_continue;
+  done
+}
+
+function surround_sound_settings {
+  # Check for a stream to read
+  [[ 'x' == "x$audio_stream" ]] && return 3;
+
+  # Check for source file and replace with common source if missing
+  [[ $audio_source ]] || audio_source="$video_source";
+
+  # Check for, and set the label of the stream
+  [[ $audio_label ]] || audio_label="DEFAULT";
+
+  # Check for, and set the language of the stream
+  [[ $audio_lang ]] || audio_lang="$video_lang";
+
+  # Set the output filename base
+  work_prefix="${work_files}-sound-${audio_label}";
+
+  # Check for, and set, normalization values
+  [[ $audio_dyna_center ]] || audio_dyna_center="$dyna_center";
+  [[ $audio_dyna_extras ]] || audio_dyna_extras="$dyna_extras";
+  [[ $audio_dyna_origin ]] || audio_dyna_origin="$dyna_origin";
+  [[ $audio_dyna_stereo ]] || audio_dyna_stereo="$dyna_stereo";
+
+  # Check for, and set channel mapping values
+  # Trigger an return code for non-supported values
+  case $audio_channels in
+    2 ) # Stereo is not surround sound
+      return 2
+      ;;
+    7.1 )
+      [[ $audio_maping ]] || audio_maping="$audio_maping_71"
+      [[ $audio_layout ]] || audio_layout="$audio_layout_71"
+      [[ $audio_mixing ]] || audio_mixing="$audio_mixing_71"
+      ;;
+    5.1 )
+      [[ $audio_maping ]] || audio_maping="$audio_maping_51"
+      [[ $audio_layout ]] || audio_layout="$audio_layout_51"
+      [[ $audio_mixing ]] || audio_mixing="$audio_mixing_51"
+      ;;
+    '5.1(side)' )
+      [[ $audio_maping ]] || audio_maping="$audio_maping_51_side"
+      [[ $audio_layout ]] || audio_layout="$audio_layout_51_side"
+      [[ $audio_mixing ]] || audio_mixing="$audio_mixing_51_side"
+      ;;
+    * )
+      return 1
+      ;;
+  esac
+  return 0;
+}

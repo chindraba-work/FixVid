@@ -44,6 +44,8 @@ while [ -L "$fixvid_source" ]; do
   [[ $fixvid_source != /* ]] && fixvid_source="$fixvid_dir/$fixvid_source"
 done
 export fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
+# Default language for metadata
+export video_lang="und"
 
 # Check for the existence of a command.
 if [ -z $1 ]; then
@@ -86,94 +88,6 @@ fi
 # Load the configuration file if it exists
 [[ -s fixvid.conf ]] && . fixvid.conf;
 
-# Create and export some text shortcuts and functions to use later.
-#
-# ffmpeg for ignoring all but the chosen type of stream
-export audio_only="-vn -sn -dn";
-export video_only="-an -sn -dn";
-export subtitles_only="-vn -an -dn";
-# ffmpeg to ignore input timestamps, and force creation of new ones
-export input_flags="-fflags +igndts";
-export output_flags="-fflags +genpts";
-# ffmpeg to leverage the multi-threading of the CPU, for aware libraries
-export use_threads="-threads 0";
-# ffmpeg to strip the metadata from the input file, except chapter times
-export strip_meta_only="-map_metadata -1";
-# ffmpeg to strip the metadata from the input file, including chapter times
-export strip_meta_all="-map_metadata -1 -map_chapters -1";
-# Default language for metadata
-export video_lang="und"
-
-# Load the configuration file if it exists
-[[ -s fixvid.conf ]] && . fixvid.conf;
-
-export file_meta="-metadata creation_time=$timestamp \
--metadata language=$video_lang -metadata title='$video_title'"
-
-# Function to utilize multiple cores better
-# Sourced from an answer to "How do you run multiple programs in
-# parallel from a bash script?" on Stack Overflow. See:
-# https://stackoverflow.com/a/42098494/7412956
-# From user https://stackoverflow.com/users/2615062
-# All Stack Overflow contributions licensed under cc by-sa 3.0 with
-# attribution required.
-function multi_launch {
-local ident=$1;
-shift;
-echo "Processing $ident ...";
-"$@" && echo "... $ident complete" &
-local my_pid=$$
-local parallels=$(ps -eo ppid | grep -w $my_pid | wc -w)
-parallels=$((parallels-1))
-if [[ $parallels -ge $max_parallel ]]; then
-    wait -n
-fi
-}
-export -f multi_launch;
-
-# Function to determine which groups of settings are valid and which
-# ones to process. Then process any of the items that should be done
-
-function process_group {
-  process_item=$1; # The passed-in function to process the items with
-  shift;
-  group_prefix="$1";
-  shift;
-  group_key="$1";
-  shift
-  [[ $1 ]] && group_num=$1 || group_num=0;
-  shift
-
-  # Flag to process, or not, all setting groups
-  [[ 0 = $group_num ]] && all_groups=1 || unset all_groups;
-
-  # Find the last valid group number
-  group_limit=1;
-  var="${group_prefix}_${group_key}_${group_limit}";
-  while [[ ${!var} ]]; do
-    ((group_limit++));
-    var="${group_prefix}_${group_key}_${group_limit}";
-  done;
-
-  # Initialize the group_num, if needed
-  [[ 0 = $group_num ]] && group_num=1;
-
-  # Set the continue flag based on the validity of requested group number
-  [[ $group_num < $group_limit ]] && continue=1 || unset continue;
-  while [[ $continue ]]; do
-    # Load the group settings into the generic set of settings
-    for item in $@; do
-      var="${group_prefix}_${item}_${group_num}";
-      declare ${group_prefix}_${item}="${!var}";
-    done
-    $process_item;
-    (( group_num++ ));
-    # Check for completion
-    [[ $all_groups ]] && [[ $group_num < $group_limit ]] && continue=1 || unset continue;
-  done
-}
-
-export -f process_group;
-
 # Call the command passed in, forwarding all other command line args
 time $fixvid_dir/$command_check "$@";
+

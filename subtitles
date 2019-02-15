@@ -36,15 +36,15 @@
 # there are multiple occurrences of the configuration variables.
 #
 
-group='subs';
-required='stream';
-group_fields='source stream label title type lang';
-
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
-# Read the optional argument.
-[[ $1 ]] && traget_num=$1 || traget_num=0;
+# Load the helper functions and common settings
+source "$fixvid_dir/helpers";
+
+group='subs';
+required='stream';
+group_fields='source stream label title type lang';
 
 # The function to extract the subtitle file(s)
 function get_subtitles {
@@ -67,6 +67,9 @@ function get_subtitles {
       ;;
   esac
 }
+
+# Read the optional argument.
+[[ $1 ]] && traget_num=$1 || traget_num=0;
 
 process_group get_subtitles $group $required $traget_num $group_fields;
 
