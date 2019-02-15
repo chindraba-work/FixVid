@@ -34,27 +34,6 @@
 # Command script to take the 6 channels and build the 5.1 surround sound
 # for the video.
 #
-# Accepts no arguments.
-#
-# Reads fixvid.conf for:
-#     work_files    the prefix of filenames for work files
-#     video_title   added to the title metadata of the files
-#     channel_map     the filter used to split the stream into channels
-#     channel_list    the list of channels to process
-#     stereo_mix      the ratios for mixing surround sound to stereo
-#     timestamp     entered in the creation_time metadata for streams
-# Reads the channel files made by hts-normalize:
-#     *-surround-e*.wav       The normalized channel sound file
-#
-# Displays the ffmpeg progress line while running and the results of the
-# time command once finished.
-#
-# Generates 4 file:
-#     *-surround-adjusted-merge-aac.log   The ffmpeg output
-#     *-surround-adjusted-merge-ac3.log   The ffmpeg output
-#     *-surround-adjusted.aac             Normailzed surround sound, AAC
-#     *-surround-adjusted.ac3             Normailzed surround sound, AC3
-#
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
