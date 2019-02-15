@@ -39,20 +39,6 @@
 # require a separate launcher with the ability to discriminate the
 # variables from the config file and options from the command line.
 #
-# Accepts no arguments:
-#
-# Reads fixvid.conf for:
-#     work_files      the prefix of filenames for work files
-#     video_title     added to the title metadata of the files
-#     timestamp       entered in the creation_time metadata for streams
-#
-# Displays the ffmpeg progress line while running and the results of the
-# time command once finished.
-#
-# Generates 1 file:
-#     *-<label>.ass   The copied subtitles in Substation Alpha format
-#                     <label>
-#
 
 # Skip this if it has already been done.
 # To rerun, delete the created .ass file first

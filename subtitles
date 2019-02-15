@@ -35,26 +35,6 @@
 # proper parameters set. May launch the extraction multiple times if
 # there are multiple occurrences of the configuration variables.
 #
-# Accepts 1 optional argument:
-#     group_num   Which setting group to use in extraction.
-#                 A value of "0", or no argument, will cycle through
-#                 all the available groups, creating subtitles for each.
-#                 Any other number will create one subtitle file using
-#                 the group number to determine which settings to use.
-#
-# Reads fixvid.conf for:
-#     subs_source_n
-#     subs_stream_n
-#     subs_label_n
-#     subs_title_n
-#     subs_type_n
-#     _n
-#         where "n" is an integer number beginning at "1"
-#
-# Displays nothing.
-#
-# Generates 0 files:
-#
 
 group='subs';
 required='stream';

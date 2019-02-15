@@ -2,7 +2,8 @@
 
 ########################################################################
 #                                                                      #
-#  stereo: extract a stereo soundtrack from a souce and modify it      #
+#  stereo: script to create external stereo sound files, in original   #
+#  sound and with normalized, 'enhanced', sound.                       #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
@@ -34,36 +35,6 @@
 # Command script to extract, and enhance, the stereo soundtrack from a
 # file.
 #
-# Accepts no arguments.
-#
-# Reads fixvid.conf for:
-#     work_files      the prefix of filenames for work files
-#     video_title     added to the title metadata of the files
-#     stereo_source   file with the stereo stream to use
-#     stereo_stream   the index (zero-based) of the stereo stream
-#     dyna_stereo     the filter to use for enhancing the stereo stream
-#     timestamp       entered in the creation_time metadata for streams
-#
-# Displays the ffmpeg progress line while running and the results of the
-# time command once finished.
-#
-# Generates 5 files:
-#     fixvid-*-stereo.log     The captured output of the ffmpeg command
-#     *-stereo.aac            The copied stereo soundtrack, AC3 format
-#     *-stereo.ac3            The copied stereo soundtrack, AC3 format
-#     *-stereo-adjusted.aac   The adjusted soundtrack, AAC format
-#     *-stereo-adjusted.ac3   The adjusted soundtrack, AC3 format
-#
-
-##
-##      NOTE:
-##
-##  The stereo and hts-stereo commands create the same group of files,
-##  and will overwrite the other's output. Only one stereo soundtrack is
-##  needed, and selecting the best available for use while ignoring all
-##  others will avoid any complications from the two commands creating
-##  the same group of files.
-##
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;

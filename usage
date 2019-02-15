@@ -33,17 +33,9 @@
 # Command script to show the help/usage information for the FixVid
 # project
 #
-# Accepts no arguments
-#
-# Displays, on STDOUT, the usage data
-#
-# Generates no files
-#
 
-show_usage='cat';
-test -n $PAGER && show_usage="$PAGER";
+usage_out=$(cat <<USAGE
 
-cat <<USAGE | "$show_usage";
 Usage: $1 <command> [arg [arg [...] ] ]
 
 Process files in the current directory, according to the information in
@@ -175,8 +167,10 @@ Available commands are:
         video will have to be remuxed for any change in components.
 
 USAGE
+);
 
-if [ 'cat' == $show_usage ]; then
-  echo '------------------------------------------------------------------------';
-fi
+[[ $PAGER ]] \
+&& printf "%s" "$usage_out" | $PAGER \
+|| printf "\n%s\n\n%s\n\n" "$usage_out" "    \
+--------------------------------------------------------------------";
 

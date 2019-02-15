@@ -2,7 +2,7 @@
 
 ########################################################################
 #                                                                      #
-#  hts-normalize: apply dynaudnorm filter of ffmpeg to channel files   #
+#  hts-normalize: apply normalization filter to channel files          #
 #                                                                      #
 #  This file is part of FixVid, a system to semi-automatically modify  #
 #  and re-encode video files to create an acceptable version for a     #
@@ -34,31 +34,6 @@
 # Command script to normalize each of the independent channel files from
 # the surround sound soundtrack. Uses the files created by hts-split.
 # If any of the 6 input files are missing, forces a run of hts-split.
-#
-# Accepts no arguments.
-#
-# Reads fixvid.conf for:
-#     work_files      the prefix of filenames for work files
-#     video_title     added to the title metadata of the files
-#     channel_map     the filter used to split the stream into channels
-#     channel_list    the list of channels to process
-#     stereo_mix      the ratios for mixing surround sound to stereo
-#     timestamp       entered in the creation_time metadata for streams
-#     dyna_center     the filter to apply to the center channel
-#     dyna_front      the filter to apply to the left & right channels
-#     dyna_surround   the filter to apply to other channels
-#     channel_map     the filter used to split the stream into channels
-#     channel_list    the list of channels to process
-#     stereo_mix      the ratios for mixing surround sound to stereo
-# Reads the channel files made by hts-split:
-#     *-surround-*.wav     The channel from the source
-#
-# Displays the ffmpeg progress line while running and the results of the
-# time command once finished.
-#
-# Generates 1 file plus 1 per channel:
-#     fixvid-*-normalize.log    The captured output of the ffmpeg command
-#     *-surround-*.wav          The normalized channel sound
 #
 
 # Load the configuration file

@@ -36,22 +36,6 @@
 # and adjusted versions if both versions exist in AC3 format. If either
 # version is missing, the script will abort.
 #
-# Accepts no arguments.
-#
-# Reads fixvid.conf for:
-#     work_files      the prefix of filenames for work files
-#     video_title     added to the title metadata of the files
-#     timestamp       entered in the creation_time metadata for streams
-#
-# Displays the ffmpeg progress line while running and the results of the
-# time command once finished.
-#
-# Generates 4 files:
-#     fixvid-*-dts.cmd         The complete ffmpeg command to execute
-#     fixvid-*-dts.log         The captured output of the ffmpeg command
-#     *-surround.dts           The original soundtrack
-#     *-surround-adjusted.dts  The adjusted soundtrack
-#
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;

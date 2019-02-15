@@ -35,27 +35,6 @@
 # set. May launch the extraction multiple time if there are multiple
 # occurrences of the video configuration variables.
 #
-# Accepts 1 optional argument:
-#     group_num   Which setting group to use in extraction.
-#                 A value of "0", or no argument, will cycle through
-#                 all the available groups, extracting a video for
-#                 each. Any other number will extract one video,
-#                 using the group number to determine which one to
-#                 use.
-#
-# Reads fixvid.conf for:
-#     video_label_n
-#     video_codec_n
-#     video_params_n
-#     video_equalizer_n     The eq video filter settings
-#     video_adjust_n
-#     video_complex_n
-#         where "n" is an integer number beginning at "1"
-#
-# Displays nothing.
-#
-# Generates 0 files:
-#
 
 group='video';
 required='codec';

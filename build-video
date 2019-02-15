@@ -38,23 +38,6 @@
 # this script will require a separate launcher to handle the logic of
 # selecting the source files for each final version.
 #
-# Accepts no arguments:
-#
-# Reads fixvid.conf for:
-#         video_title       Name of the video
-#         work_files        Filename prefix for working files
-#         chapter_file      The file with chapter titles, if any
-#         subs_label_n      The filename for subtitle group n
-#         subs_title_n      The metadata title for subtitle group n
-#         subs_included_n   If subtitle group n is embedded in the video
-#         subs_SDH_n        If subtitle group n is for Hearing-Impaired
-#
-# Displays the ffmpeg progress line while running and the results of the
-# time command once finished.
-#
-# Generates 1 file:
-#     *-codec-<video_label>.mkv  The newly created video.
-#
 
 # Function to add each available version of the subtitles
 function add_subs {

@@ -33,12 +33,6 @@
 # Command script to apply ffprobe and filter the output for pertinent
 # data.
 #
-# Accepts one argument: Name of the file to probe
-#
-# Displays, on STDOUT, the filtered results of the probe
-#
-# Generates no files
-#
 
 check_file=$1
 

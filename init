@@ -40,12 +40,6 @@
 # the ffprobe command, and the pertinent results displayed to the user
 # and saved into the fixvid.scan file for later reference.
 #
-# Accepts no arguments
-#
-# Creates the following files
-#     fixvid.conf       The copied template for the configuration
-#     fixvid.scan       The ffprobe results from all candidate files
-#
 
 test -s fixvid.conf || cp "$fixvid_dir/config-template" fixvid.conf;
 

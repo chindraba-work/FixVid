@@ -38,19 +38,6 @@
 # separate launcher with the ability to discriminate the variables from
 # the config file and options from the command line.
 #
-# Accepts no arguments:
-#
-# Reads fixvid.conf for:
-#       work_files
-#       video_title
-#       enable_nvidia
-#
-# Displays the ffmpeg progress line while running and the results of the
-# time command once finished.
-#
-# Generates 1 file:
-#   *-video-codec-<v_label>.mkv  The recorded video from the source file
-#
 
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || return 4;
