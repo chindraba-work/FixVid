@@ -36,39 +36,55 @@
 # and adjusted versions if both versions exist in AC3 format. If either
 # version is missing, the script will abort.
 #
-
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
 # Load the helper functions and common settings
 source "$fixvid_dir/helpers";
 
-# Set the output filename base
-work_prefix="${work_files}-surround";
+group='audio';
+required='dts';
+group_fields="source stream label title lang layout channels include \
+dyna_center dyna_extras dyna_origin dyna_stereo mapping mixing";
 
-# Skip this if it has already been done.
-# To rerun, delete the *_stereo_adjusted.dts file first
-[[ -s "${work_prefix}-adjusted.dts" ]] && exit 3;
+function do_dts_build {
+  # Test for surround sound and load surround sound settings
+  surround_sound_settings || return 0;
 
-# Verify that the source files exist, or exit
-[[ ! -s "${work_prefix}.ac3" ]] || [[ ! -s "${work_prefix}-adjusted.ac3" ]] && exit 3;
+  # Select which source file type to use, AC3 or AAC
+  source_ext='ac3';
+  [[ 1 = $skip_ac3 ]] && [[ 1 = $skip_aac ]] && return 0;
+  [[ 1 = $skip_ac3 ]] || source_ext='aac';
 
-time bash -c "FFREPORT=file=\"fixvid-${work_prefix}.log\":level=40 \
-ffmpeg -hide_banner -y -loglevel error -stats \
-$input_flags -i '${work_prefix}.ac3' \
-$input_flags -i '${work_prefix}-adjusted.ac3' \
--map 0:0 \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title='Surround Sound' \
--c:0 dts -b:a 768k -strict -2 \
-$use_threads $output_flags \
-\"${work_prefix}.dts\" \
--map 1:0 \
-$strip_meta_all $file_meta \
--metadata:s:0 language=eng -metadata:s:0 title='Surround Sound (Enhanced)' \
--c:0 dts -b:a 768k -strict -2 \
-$use_threads $output_flags \
-\"${work_prefix}-adjusted.dts\"";
+  # Skip this if it has already been done.
+  # To rerun, delete the *-remix.dts file first
+echo "building $group_num";
+  [[ -s "${work_prefix}-remix.dts" ]] && return 0;
+
+  # Check for all dependent files
+  # Force hts-remix to (re)make all if one is missing
+  files_ready=0;
+  [[ -s "${work_prefix}-remix.$source_ext" ]] || files_ready=1;
+  [[ -s "${work_prefix}.$source_ext" ]] || files_ready=1;
+  [[ 0 = $files_ready ]] || {
+    rm -f "${work_prefix}-remix.aac";
+    rm -f "${work_prefix}-remix.ac3";
+    echo "Source file(s) not found.";
+    echo " ... Creating ...";
+    echo "";
+    "$fixvid_dir/hts-remix" $group_num;
+  }
+
+  # Skip creation of the un-normalized remix if already done
+  [[ -s "${work_prefix}.dts" ]] || multi_launch "Create ${audio_label} DTS" bash -c "FFREPORT=file='fixvid-${work_prefix}.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}.$source_ext' -map 0:0 $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_label DTS' -c:0 dts -b:a 768k -strict -2 $use_threads $output_flags '${work_prefix}.dts'";
+
+  # Always (re-)create the normalized version
+  multi_launch "Remix ${audio_label} DTS" bash -c "FFREPORT=file='fixvid-${work_prefix}.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-remix.$source_ext' -map 0:0 $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_label DTS' -c:0 dts -b:a 768k -strict -2 $use_threads $output_flags '${work_prefix}-remix.dts'";
+}
 
 # Read the optional argument.
 [[ $1 ]] && target_num=$1 || target_num=0;
+
+process_group do_dts_build $group $required $target_num $group_fields;
+
+wait;
