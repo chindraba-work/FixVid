@@ -39,53 +39,26 @@
 # the mixing from the available channels.
 #
 
-# Load the configuration file
-[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
-
-# Check for source file and replace with common source if missing
-if [[ 'x' == "x$surround_source" ]] && [[ -s $video_source ]]; then
-  surround_source=$video_source;
-fi
-
 # Set the output filename base
-work_prefix="${work_files}-stereo";
+work_prefix="${work_prefix}-downmix";
 
 # Skip this if it has already been done.
 # To rerun, delete the *_stereo_adjusted.aac file first
-[[ -s "${work_prefix}-adjusted.aac" ]] && exit 3;
-
-# Set the channel data based on the chosen surround layout
-# Invalid, or missing, layout will abort the process
-case "$surround_layout" in
-  '7.1' )
-    channel_map=$channel_map_71
-    channel_list=$channel_list_71
-    stereo_mix=$stereo_mix_71
-    ;;
-  '5.1' )
-    channel_map=$channel_map_51
-    channel_list=$channel_list_51
-    stereo_mix=$stereo_mix_51
-    ;;
-  '5.1(side)' )
-    channel_map=$channel_map_51_side
-    channel_list=$channel_list_51_side
-    stereo_mix=$stereo_mix_51_side
-    ;;
-  * )
-    exit 3
-    ;;
-esac
+[[ -s "${work_prefix}-norm.ac3" ]] && return 3;
 
 # Always make, or replace, the adjusted versions of the remixed files.
 # They are subject to repeated building until the "correct" sound is
 # achieved.
-multi_launch "Enhanced AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-adjusted-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$surround_source' -filter_complex '[0:$surround_stream] $stereo_mix [STEREO];[STEREO] $dyna_stereo [NORM]' -map [NORM] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}-adjusted.aac'";
-multi_launch "Enhanced AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-adjusted-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$surround_source' -filter_complex '[0:$surround_stream] $stereo_mix [STEREO];[STEREO] $dyna_stereo [NORM]' -map [NORM] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}-adjusted.ac3'";
+
+[[ 1 = $skip_aac ]] || multi_launch "Normalize ${audio_label} AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-norm-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -filter_complex '[0:$audio_stream] $audio_mixing [STEREO];[STEREO] $audio_dyna_stereo [NORM]' -map [NORM] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='${audio_title} (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}-norm.aac'";
+[[ 1 = $skip_ac3 ]] || multi_launch "Normalize ${audio_label} AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-norm-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -filter_complex '[0:$audio_stream] $audio_mixing [STEREO];[STEREO] $audio_dyna_stereo [NORM]' -map [NORM] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='${audio_title} (Enhanced)' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}-norm.ac3'";
 
 # Skip creation of either, or both, of the un-normalized remix versions
 # if they have already been made. They are not "adjusted" in any way, so
 # remaking them each time is wasted CPU cycles.
-[[ -s "${work_prefix}.aac" ]] || multi_launch "Remixed AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$surround_source' -filter_complex '[0:$surround_stream] $stereo_mix [STEREO]' -map [STEREO] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
-[[ -s "${work_prefix}.ac3" ]] || multi_launch "Remixed AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$surround_source' -filter_complex '[0:$surround_stream] $stereo_mix [STEREO]' -map [STEREO] $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
-wait
+
+[[ 1 = $skip_aac ]] || [[ -s "${work_prefix}.aac" ]] || multi_launch "Downmix ${audio_label} AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -filter_complex '[0:$audio_stream] $audio_mixing [STEREO]' -map [STEREO] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_label' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
+[[ 1 = $skip_ac3 ]] || [[ -s "${work_prefix}.ac3" ]] || multi_launch "Downmix ${audio_label} AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -filter_complex '[0:$audio_stream] $audio_mixing [STEREO]' -map [STEREO] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_label' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
+
+wait;
+

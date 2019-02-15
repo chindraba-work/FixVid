@@ -40,6 +40,9 @@
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
+# Load the helper functions and common settings
+source "$fixvid_dir/helpers";
+
 # Set the output filename base
 work_prefix="${work_files}-surround";
 
@@ -66,3 +69,6 @@ $strip_meta_all $file_meta \
 -c:0 dts -b:a 768k -strict -2 \
 $use_threads $output_flags \
 \"${work_prefix}-adjusted.dts\"";
+
+# Read the optional argument.
+[[ $1 ]] && target_num=$1 || target_num=0;

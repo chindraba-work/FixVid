@@ -52,6 +52,6 @@ function get_video {
 }
 
 # Read the optional argument.
-[[ $1 ]] && traget_num=$1 || traget_num=0;
+[[ $1 ]] && target_num=$1 || target_num=0;
 
-process_group get_video $group $required $traget_num $group_fields;
+process_group get_video $group $required $target_num $group_fields;

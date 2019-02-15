@@ -38,6 +38,9 @@
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
+# Load the helper functions and common settings
+source "$fixvid_dir/helpers";
+
 # Check for audio source (required)
 [[ -s "${work_files}-stereo-adjusted.aac" ]] || exit 4;
 

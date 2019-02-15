@@ -121,29 +121,87 @@ video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level
 #
 #                        Audio component settings
 #
-# File that has the audio to use as source for the final stereo stream
-# stereo_source='movie';
-stereo_stream=1;
+# Control the creation of either, or both, AC3 and AAC streams
+# Commented, or set to anything other than 1 will allow the creation
+# of the stream. Set to 1 will prevent creation
+skip_aac=1;
+# skip_ac3=0;
 
-# File that has the audio to use as source for the final surround stream
-# surround_source='movie';
-surround_stream=1;
+# File that has the file name and stream index of the audio source
+# audio_source_1='movie';
+audio_stream_1=1;
+
+# The label to use on extracted files for this audio source
+audio_label_1='';
+
+# The title, internal to the Matroska containter, to apply
+audio_title_1='';
+
+# The language this audio stream is in, if different than the video
+# audio_lang_1='';
+
+# The channels in this stream. I.e. 5.1, 7.1, '5.1(side)', or 2
+# audio_channels_1='5.1(side)';
+
+# If the normal layout and channel mapping for the audio channel above
+#    then these allow for creating a unique setup.
+# audio_layout_1='fl fr fc lf sl sr';
+# audio_mapping_1='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+
+# How to mix the channel values to create a stereo stream from original
+# surround sound stream
+# audio_mixing_1='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
+
+# The dynaudnorm values to apply to the different channels when remixing
+#     the surround sound or enhancing the stereo stream. Not needed if
+#     the general version applies to this stream
+# audio_dyna_stereo_1='';
+# audio_dyna_center_1='';
+# audio_dyna_origin_1='';
+# audio_dyna_extras_1='';
+
+# Whether or not to include this stream in the final remux. Options are:
+#    stereo: include the stereo stream, whether the source is surround
+#            sound or stereo
+#  surround: include the remixed surround sound stream
+#      both: Include the surround sound AND the stereo streams
+#         1: If a stereo stream, include it, ignored for surround sound
+# audio_include_1='stereo';
+
+
+# audio_source_2='';
+# audio_stream_2=2;
+# audio_label_2='extra';
+# audio_title_2='Directors Thoughts';
+# audio_lang_2='fre';
+# audio_channels_2='2';
+# audio_layout_2='';
+# audio_mapping_2='';
+# audio_mixing_2='';
+# audio_dyna_stereo_2='';
+# audio_dyna_center_2='';
+# audio_dyna_origin_2='';
+# audio_dyna_extras_2='';
+# audio_include_2='1';
+
+
+# SETTINGS for standard surround sound
+######################################
 
 ### Use for 7.1 surround sound
-channel_map_71='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR|6-SL|7-SR:7.1';
-stereo_mix_71='pan=stereo|FL < 1.7*FC + 0.7*FL + 0.5*BL + 0.6*SL|FR < 1.7*FC + 0.7*FR + 0.5*BR + 0.6*SR';
-channel_list_71='fl fr fc lf bl br sl sr';
+audio_layout_71='fl fr fc lf bl br sl sr';
+audio_maping_71='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR|6-SL|7-SR:7.1';
+audio_mixing_71='pan=stereo|FL < 1.7*FC + 0.7*FL + 0.5*BL + 0.6*SL|FR < 1.7*FC + 0.7*FR + 0.5*BR + 0.6*SR';
 
 ### Use for 5.1 surround sound
-channel_map_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
-stereo_mix_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
-channel_list_51='fl fr fc lf bl br';
+audio_layout_51='fl fr fc lf bl br';
+audio_maping_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+audio_mixing_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
 
 ### Use for 5.1(side) surround sound
-channel_map_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
-stereo_mix_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
-channel_list_51_side='fl fr fc lf sl sr';
-
+audio_layout_51_side='fl fr fc lf sl sr';
+audio_maping_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+audio_mixing_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
 
 # SETTINGS for dynaudnorm filter
 #################################
@@ -162,8 +220,8 @@ channel_list_51_side='fl fr fc lf sl sr';
 
 dyna_stereo='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
 dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
-dyna_front='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
-dyna_surround='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
+dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
+dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
 
 
 

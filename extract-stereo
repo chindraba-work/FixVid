@@ -36,35 +36,32 @@
 # and save it in four files: AAC encoded and AC3 encoded versions of
 # the 'original' soundtrack and the normalized version
 #
-
-# Load the configuration file
-[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
-
-# Check for source file and replace with common source if missing
-if [[ 'x' == "x$stereo_source" ]] && [[ -s $video_source ]]; then
-  stereo_source=$video_source;
-fi
+# Because of the possibility of extracting multiple versions of the
+# soundtrack, this will require a separate launcher with the ability to
+# discriminate the variables from the config file and options from the
+# command line.
+#
 
 # Set the output filename base
-work_prefix="${work_files}-stereo";
+work_prefix="${work_prefix}-stereo";
 
 # Skip this if it has already been done.
 # To rerun, delete the *_stereo_adjusted.aac file first
-[[ -s "${work_prefix}-adjusted.aac" ]] && exit 3;
+[[ -s "${work_prefix}-norm.ac3" ]] && return 3;
+
 
 # Always make, or replace, the adjusted versions of the stereo files.
 # They are subject to repeated building until the "correct" sound is
 # achieved.
-multi_launch "Normalized Stereo AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-adjusted-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$stereo_source' -af $dyna_stereo -map 0:$stereo_stream $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}-adjusted.aac'";
-multi_launch "Normalized Stereo AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-adjusted-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$stereo_source' -af $dyna_stereo -map 0:$stereo_stream $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo (Enhanced)' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}-adjusted.ac3'";
+
+[[ 1 = $skip_aac ]] || multi_launch "Normalize ${audio_label} AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-norm-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -af $audio_dyna_stereo -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='${audio_title} (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}-norm.aac'";
+[[ 1 = $skip_ac3 ]] || multi_launch "Normalize ${audio_label} AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-norm-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -af $audio_dyna_stereo -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='${audio_title} (Enhanced)' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}-norm.ac3'";
 
 # Skip creation of either, or both, of the un-normalized stereo versions
 # if they have already been made. They are not "adjusted" in any way, so
 # remaking them each time is wasted CPU cycles.
-[[ -s "${work_prefix}.aac" ]] || multi_launch "Stereo AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$stereo_source' -map 0:$stereo_stream $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
-[[ -s "${work_prefix}.ac3" ]] || multi_launch "Stereo AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$stereo_source' -map 0:$stereo_stream $strip_meta_all $file_meta -metadata:s:0 language=eng -metadata:s:0 title='Stereo' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
 
-wait
+[[ 1 = $skip_aac ]] || [[ -s "${work_prefix}.aac" ]] || multi_launch "Copy ${audio_label} AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='${audio_title}' -c:0 libfdk_aac -profile:a aac_he -b:a 128k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
+[[ 1 = $skip_ac3 ]] || [[ -s "${work_prefix}.ac3" ]] || multi_launch "Copy ${audio_label} AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='${audio_title}' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
 
-
-
+wait;

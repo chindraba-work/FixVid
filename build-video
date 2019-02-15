@@ -142,10 +142,10 @@ stream_count=$((++stream_count));
 
 group='subs';
 required='stream';
-traget_num=0;
+target_num=0;
 group_fields='label title included SDH type lang';
 
-process_group add_subs $group $required $traget_num $group_fields;
+process_group add_subs $group $required $target_num $group_fields;
 
 # Add the chapter source file, if any
 if [[ "$chapter_file" ]] && [[ -s "$chapter_file" ]]; then

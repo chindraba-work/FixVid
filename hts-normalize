@@ -39,72 +39,64 @@
 # Load the configuration file
 [[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
 
-# Set the output filename base
-work_prefix="${work_files}-surround";
+# Load the helper functions and common settings
+source "$fixvid_dir/helpers";
 
-# Skip this if it has already been done.
-# To rerun, delete the *_surround_fce.wav file first
-[[ -s "${work_prefix}_efc.wav" ]] && exit 3;
+group='audio';
+required='stream';
+group_fields="source stream label title lang layout channels include \
+dyna_center dyna_extras dyna_origin dyna_stereo mapping mixing";
 
-# Set the channel data based on the chosen surround layout
-# Invalid, or missing, layout will abort the process
-case "$surround_layout" in
-  '7.1' )
-    channel_map=$channel_map_71
-    channel_list=$channel_list_71
-    stereo_mix=$stereo_mix_71
-    ;;
-  '5.1' )
-    channel_map=$channel_map_51
-    channel_list=$channel_list_51
-    stereo_mix=$stereo_mix_51
-    ;;
-  '5.1(side)' )
-    channel_map=$channel_map_51_side
-    channel_list=$channel_list_51_side
-    stereo_mix=$stereo_mix_51_side
-    ;;
-  * )
-    exit 3
-    ;;
-esac
+function do_normalize {
+  # Test for surround sound and load surround sound settings
+  surround_sound_settings || return 0;
 
-# Check for all dependent files
-# Force hts-explode to (re)make all if one is missing
-files_ready=0;
-for channel in $channel_list; do
-  [[ -s "${work_prefix}-$channel.wav" ]] || files_ready=1;
-done
-[[ 0 = $files_ready ]] || {
-  rm -f "${work_prefix}-fc.wav";
-  echo "One, or more, of the channel files not found.";
-  echo "... Creating ...";
-  echo "";
-  "$fixvid_dir/hts-explode";
+  # Skip this if it has already been done.
+  # To rerun, delete the *-channels-adj-fl.wav file first
+  [[ -s "${work_prefix}-channels-adj-fl.wav" ]] && return 0;
+
+  # Check for all dependent files
+  # Force hts-explode to (re)make all if one is missing
+  files_ready=0;
+  for channel in $audio_layout; do
+    [[ -s "${work_prefix}-channels-$channel.wav" ]] || files_ready=1;
+  done
+  [[ 0 = $files_ready ]] || {
+    rm -f "${work_prefix}-channels-fl.wav";
+    echo "One, or more, of the channel files not found.";
+    echo "... Creating ...";
+    echo "";
+    "$fixvid_dir/hts-explode" $group_num;
+  }
+
+  # Process the regular channel files and make the enhanced versions
+  for channel in $audio_layout; do
+    case "$channel" in
+      'fl' | 'fr' )
+        channel_dyna="$audio_dyna_origin"
+        ;;
+      'fc' )
+        channel_dyna="$audio_dyna_center"
+        ;;
+      *)
+        channel_dyna="$audio_dyna_extras"
+        ;;
+    esac
+    multi_launch "Normalize ${audio_label} ${channel^^} channel" bash -c "FFREPORT=file='fixvid-${work_prefix}-${channel}.part':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-channels-$channel.wav' -map 0:0 -af $audio_dyna_origin $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title [${channel^^}] (Enhanced)' -c:0 pcm_s16le -b:a 384k $use_threads $file_meta $output_flags '${work_prefix}-channels-adj-$channel.wav'"
+  done
+
+  wait
+
+  # Feed the individual log files into a single log file
+  rm -f "fixvid-${work_prefix}-normalize.log";
+  for channel in $audio_layout; do
+    cat "fixvid-${work_prefix}-${channel}.part" >> "fixvid-${work_prefix}-normalize.log";
+    rm -f "fixvid-${work_prefix}-${channel}.part";
+  done
 }
 
+# Read the optional argument.
+[[ $1 ]] && target_num=$1 || target_num=0;
 
-# Process the regular channel files and make the enhanced versions
-for channel in $channel_list; do
-  case "$channel" in
-    'fl' | 'fr' )
-      encoding="-map 0:0 -af $dyna_front -c:0 pcm_s16le -b:a 384k $use_threads $output_flags"
-      ;;
-    'fc' )
-      encoding="-map 0:0 -af $dyna_center -c:0 pcm_s16le -b:a 384k $use_threads $output_flags"
-      ;;
-    *)
-      encoding="-map 0:0 -af $dyna_surround -c:0 pcm_s16le -b:a 384k $use_threads $output_flags"
-      ;;
-  esac
-  multi_launch "${channel^^} channel" bash -c "FFREPORT=file='fixvid-${work_prefix}-${channel}.part':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-$channel.wav' $encoding '${work_prefix}-e$channel.wav'"
-done
+process_group do_normalize $group $required $target_num $group_fields;
 
-wait
-
-# Feed the individual log files into a single log file
-rm -f "fixvid-${work_prefix}-normalize.log";
-for channel in $channel_list; do
-  cat "fixvid-${work_prefix}-${channel}.part" >> "fixvid-${work_prefix}-normalize.log";
-  rm -f "fixvid-${work_prefix}-${channel}.part";
-done
