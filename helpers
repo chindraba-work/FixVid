@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# add new channel handler:
+# -  create new command-stub (like extract-stereo or hts-downmix) to create a stereo stream
+# -  add trap (possibly maping, mixing, and layout) to helpers.surround_sound_settings
+# -  add trap to stereo command calling the command-stub
+# -  create new command(s) like hts-explode, hts-normalize, and hts-remix, to copy and normailze the stream
+# -  add cammand-stub to include into video files
+
+
 # Create and export some text shortcuts and functions to use later.
 #
 # ffmpeg for ignoring all but the chosen type of stream
@@ -18,6 +26,7 @@ strip_meta_all="-map_metadata -1 -map_chapters -1";
 file_meta="-metadata creation_time=$timestamp \
 -metadata language=$video_lang -metadata title='$video_title'"
 
+function multi_launch {
 # Function to utilize multiple cores better
 # Sourced from an answer to "How do you run multiple programs in
 # parallel from a bash script?" on Stack Overflow. See:
@@ -25,7 +34,6 @@ file_meta="-metadata creation_time=$timestamp \
 # From user https://stackoverflow.com/users/2615062
 # All Stack Overflow contributions licensed under cc by-sa 3.0 with
 # attribution required.
-function multi_launch {
 local ident=$1;
 shift;
 echo "Processing $ident ...";
@@ -38,9 +46,9 @@ if [[ $parallels -ge $max_parallel ]]; then
 fi
 }
 
+function process_group {
 # Function to determine which groups of settings are valid and which
 # ones to process. Then process any of the fields that should be done
-function process_group {
   item_process=$1; # The passed-in function to process the fields with
   shift;
   group_prefix="$1";
@@ -50,7 +58,6 @@ function process_group {
   [[ $1 ]] && group_num=$1 || group_num=0;
   shift
   field_list="$@";
-
   # Flag to process, or not, all setting groups
   [[ 0 = $group_num ]] && group_all=1 || unset group_all;
 
@@ -78,7 +85,7 @@ function process_group {
     done;
     $item_process || return $x;
     for key in limit num all continue; do
-      var="${group}_$key";
+      var="${group_prefix}_$key";
       declare group_$key="${!var}";
     done;
     (( group_num++ ));
@@ -87,9 +94,9 @@ function process_group {
   done
 }
 
-function surround_sound_settings {
+function multi_channel_setup {
   # Check for a stream to read
-  [[ 'x' == "x$audio_stream" ]] && return 3;
+  [[ 'x' == "x$audio_stream" ]] && return 1;
 
   # Check for source file and replace with common source if missing
   [[ $audio_source ]] || audio_source="$video_source";
@@ -103,11 +110,46 @@ function surround_sound_settings {
   # Set the output filename base
   work_prefix="${work_files}-sound-${audio_label}";
 
+  # There must be at least one form of the stream included
+  # Defaults to stereo if nothing is selected
+  [[ 1 = $audio_include_stereo ]] || \
+  [[ 1 = $audio_include_channels ]] || \
+  [[ 1 = $audio_include_dts ]] || \
+    audio_include_stereo=1;
+
+  # There needs to be at least one audio codec included
+  # Defaults to AC3
+  [[ 1 = $audio_include_ac3 ]] || \
+  [[ 1 = $audio_include_aac ]] || \
+  [[ 1 = $audio_include_dts ]] || \
+  [[ 1 = $audio_include_custom ]] || {
+  [[ 1 = $audio_make_ac3 ]] && \
+    audio_include_ac3=1; } || {
+  [[ 1 = $audio_make_aac ]] && \
+    audio_include_aac=1; } || {
+  [[ 1 = $audio_make_dts ]] && \
+    audio_include_dts=1; } || {
+  [[ 1 = $audio_make_custom ]] && \
+    audio_include_custom=1; } || \
+  audio_include_ac3=1;
+
+  # If DTS is requested we must make the channels
+  [[ 1 = $audio_make_dts ]] || \
+  [[ 1 = $audio_include_dts ]] && \
+    audio_make_channels=1;
+
+  # To make the DTS we need either AC3 or AAC, AC3 by default
+  [[ ! 1 = $audio_make_channels ]] || \
+  [[ 1 = $audio_make_ac3 ]] || \
+  [[ 1 = $audio_make_aac ]] || \
+    audio_make_ac3=1;
+
   # Check for, and set, normalization values
   [[ $audio_dyna_center ]] || audio_dyna_center="$dyna_center";
   [[ $audio_dyna_extras ]] || audio_dyna_extras="$dyna_extras";
   [[ $audio_dyna_origin ]] || audio_dyna_origin="$dyna_origin";
   [[ $audio_dyna_stereo ]] || audio_dyna_stereo="$dyna_stereo";
+  [[ $audio_dyna_others ]] || audio_dyna_others="$dyna_others";
 
   # Check for, and set channel mapping values
   # Trigger an return code for non-supported values

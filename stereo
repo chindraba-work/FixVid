@@ -1,0 +1,87 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  stereo: script to create external stereo sound files, in original   #
+#  sound and with normalized, 'enhanced', sound.                       #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+#
+# Command script to launch stereo sound extraction commands with all the
+# proper parameters set. May launch the extraction multiple times if
+# there are multiple occurrences of the configuration variables.
+#
+
+# Load the configuration file
+[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
+
+# Load the helper functions and common settings
+source "$fixvid_dir/helpers";
+
+group='audio';
+required='stream';
+group_fields="source stream label lang title channels layout mapping \
+mixing dyna_stereo dyna_center dyna_origin dyna_extras dyna_others \
+make_ac3 include_ac3 make_aac include_aac \
+make_channels include_channels include_stereo \
+make_custom include_custom codec filter complex ext";
+
+# The function to extract the stereo files
+function get_stereo {
+  # Test for surround sound and load surround sound settings
+  multi_channel_setup;
+  channel_check=$?;
+  case "$channel_check" in
+    0 ) # Presumed surround sound source
+        [[ 1 = $audio_include_stereo ]] && \
+          source "$fixvid_dir/hts-downmix";
+        ;;
+    1 ) # Some unknown setting for audio_channels
+        return
+        ;;
+    2 ) # Presumed stereo source
+        source "$fixvid_dir/extract-stereo";
+        ;;
+#     255 ) # Template for something else. choose the number wisely...
+#         [[ 1 = $audio_make_custom ]] ||
+#         [[ 1 = $audio_include_custom ]] && \
+#           source "$fixvid_dir/new-codec-command";
+#         ;;
+    * )
+        return
+        ;;
+  esac
+  wait;
+}
+
+# Read the optional argument.
+[[ $1 ]] && target_num=$1 || target_num=0;
+
+process_group get_stereo $group $required $target_num $group_fields;
+
+

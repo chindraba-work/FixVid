@@ -43,32 +43,37 @@
 source "$fixvid_dir/helpers";
 
 group='audio';
-required='dts';
-group_fields="source stream label title lang layout channels include \
-dyna_center dyna_extras dyna_origin dyna_stereo mapping mixing";
+required='stream';
+group_fields="source stream label title lang channels layout mapping \
+mixing dyna_stereo dyna_center dyna_origin dyna_extras dyna_others \
+make_ac3 include_ac3 make_aac include_aac \
+make_dts include_dts";
 
 function do_dts_build {
+  # Check for the need to make surround sound streams
+  [[ 1 = $audio_make_dts ]] || \
+  [[ 1 = $audio_include_dts ]] ||
+    return 0;
+
   # Test for surround sound and load surround sound settings
-  surround_sound_settings || return 0;
+  multi_channel_setup || return 0;
 
   # Select which source file type to use, AC3 or AAC
-  source_ext='ac3';
-  [[ 1 = $skip_ac3 ]] && [[ 1 = $skip_aac ]] && return 0;
-  [[ 1 = $skip_ac3 ]] || source_ext='aac';
+  [[ 1 != $audio_make_aac ]] && \
+  [[ 1 != $audio_include_aac ]] &&
+    extension='ac3' || extension='aac';
 
   # Skip this if it has already been done.
   # To rerun, delete the *-remix.dts file first
-echo "building $group_num";
-  [[ -s "${work_prefix}-remix.dts" ]] && return 0;
+  [[ -s "${work_prefix}-channels-remix.dts" ]] && return 0;
 
   # Check for all dependent files
   # Force hts-remix to (re)make all if one is missing
   files_ready=0;
-  [[ -s "${work_prefix}-remix.$source_ext" ]] || files_ready=1;
-  [[ -s "${work_prefix}.$source_ext" ]] || files_ready=1;
+  [[ -s "${work_prefix}-channels-remix.$extension" ]] || files_ready=1;
+  [[ -s "${work_prefix}-channels.$extension" ]] || files_ready=1;
   [[ 0 = $files_ready ]] || {
-    rm -f "${work_prefix}-remix.aac";
-    rm -f "${work_prefix}-remix.ac3";
+    rm -f "${work_prefix}-channels-remix.$extension";
     echo "Source file(s) not found.";
     echo " ... Creating ...";
     echo "";
@@ -76,10 +81,11 @@ echo "building $group_num";
   }
 
   # Skip creation of the un-normalized remix if already done
-  [[ -s "${work_prefix}.dts" ]] || multi_launch "Create ${audio_label} DTS" bash -c "FFREPORT=file='fixvid-${work_prefix}.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}.$source_ext' -map 0:0 $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_label DTS' -c:0 dts -b:a 768k -strict -2 $use_threads $output_flags '${work_prefix}.dts'";
+  [[ -s "${work_prefix}.dts" ]] || \
+    multi_launch "${audio_label} Copy  to DTS" bash -c "FFREPORT=file='fixvid-${work_prefix}-dts.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-channels.$extension' -map 0:0 $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title DTS' -c:0 dts -b:a 768k -strict -2 $use_threads $output_flags '${work_prefix}.dts'";
 
   # Always (re-)create the normalized version
-  multi_launch "Remix ${audio_label} DTS" bash -c "FFREPORT=file='fixvid-${work_prefix}.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-remix.$source_ext' -map 0:0 $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_label DTS' -c:0 dts -b:a 768k -strict -2 $use_threads $output_flags '${work_prefix}-remix.dts'";
+  multi_launch "${audio_label} Remix to DTS" bash -c "FFREPORT=file='fixvid-${work_prefix}-remix-dts.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-channels-remix.$extension' -map 0:0 $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title DTS' -c:0 dts -b:a 768k -strict -2 $use_threads $output_flags '${work_prefix}-remix.dts'";
 }
 
 # Read the optional argument.

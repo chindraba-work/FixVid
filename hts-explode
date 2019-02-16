@@ -44,12 +44,25 @@ source "$fixvid_dir/helpers";
 
 group='audio';
 required='stream';
-group_fields="source stream label title lang layout channels include \
-dyna_center dyna_extras dyna_origin dyna_stereo mapping mixing";
+group_fields="source stream label title lang channels layout mapping \
+mixing dyna_stereo dyna_center dyna_origin dyna_extras dyna_others \
+make_ac3 include_ac3 make_aac include_aac \
+make_channels include_channels \
+make_dts include_dts";
 
 function do_explode {
+  # Check for the need to make surround sound streams
+  [[ 1 = $audio_make_channels ]] || \
+  [[ 1 = $audio_include_channels ]] || \
+  [[ 1 = $audio_make_dts ]] || \
+  [[ 1 = $audio_include_dts ]] || \
+    return 0;
+
   # Test for surround sound and load surround sound settings
-  surround_sound_settings || return 0;
+  multi_channel_setup || return 0;
+
+  # Set the output filename base
+  work_prefix="${work_prefix}-channels";
 
   # Check for, and set the title of the streams
   [[ $audio_title ]] || audio_title="$video_title surround sound";
@@ -65,17 +78,23 @@ function do_explode {
   for channel in $audio_layout; do
     channel_pad="[${channel^^}]";
     pad_list="${pad_list}${channel_pad}";
-    channel_out="-map [${channel^^}] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title ${channel^^} Channel' -c:0 pcm_s16le -b:a 384k $use_threads $audio_only $file_meta $output_flags '${work_prefix}-channels-${channel,,}.wav'"
+    channel_out="-map [${channel^^}] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title ${channel^^} Channel' -c:0 pcm_s16le -b:a 384k $use_threads $audio_only $file_meta $output_flags '${work_prefix}-${channel,,}.wav'"
     channels_out="${channels_out} ${channel_out}";
   done
 
   # Create the AAC and/or AC3 files if they are missing.
   # They don't need to be created after the first time
-  [[ 1 = $skip_aac ]] || [[ -s "${work_prefix}.aac" ]] || multi_launch "Original ${audio_label} AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
-  [[ 1 = $skip_ac3 ]] || [[ -s "${work_prefix}.ac3" ]] || multi_launch "Original ${audio_label} AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 ac3 -b:a 640k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
+  [[ 1 = $audio_make_aac ]] || \
+  [[ 1 = $audio_include_aac ]] && \
+  [[ ! -s "${work_prefix}.aac" ]] && \
+    multi_launch "${audio_label} Original to AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
+  [[ 1 = $audio_make_ac3 ]] || \
+  [[ 1 = $audio_include_ac3 ]] && \
+  [[ ! -s "${work_prefix}.ac3" ]] && \
+    multi_launch "${audio_label} Original to AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 ac3 -b:a 640k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
 
   # Extract the channels
-  multi_launch "Split ${audio_label} channels" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-channels.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -filter_complex '[0:$audio_stream] channelsplit=channel_layout=$audio_channels $pad_list' $channels_out";
+  multi_launch "${audio_label} Split channels" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-channels.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -filter_complex '[0:$audio_stream] channelsplit=channel_layout=$audio_channels $pad_list' $channels_out";
 
   wait
 }
@@ -84,5 +103,5 @@ function do_explode {
 [[ $1 ]] && target_num=$1 || target_num=0;
 
 process_group do_explode $group $required $target_num $group_fields;
-exit "$?";
+
 

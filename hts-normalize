@@ -44,25 +44,40 @@ source "$fixvid_dir/helpers";
 
 group='audio';
 required='stream';
-group_fields="source stream label title lang layout channels include \
-dyna_center dyna_extras dyna_origin dyna_stereo mapping mixing";
+group_fields="source stream label title lang channels layout mapping \
+mixing dyna_stereo dyna_center dyna_origin dyna_extras dyna_others \
+make_channels include_channels \
+make_dts include_dts";
 
 function do_normalize {
+  # Check for the need to make surround sound streams
+  [[ 1 = $audio_make_channels ]] || \
+  [[ 1 = $audio_include_channels ]] || \
+  [[ 1 = $audio_make_dts ]] || \
+  [[ 1 = $audio_include_dts ]] || \
+    return 0;
+
   # Test for surround sound and load surround sound settings
-  surround_sound_settings || return 0;
+  multi_channel_setup || return 0;
+
+  # Set the output filename base
+  work_prefix="${work_prefix}-channels";
+
+  # Check for, and set the title of the streams
+  [[ $audio_title ]] || audio_title="$video_title surround sound";
 
   # Skip this if it has already been done.
-  # To rerun, delete the *-channels-adj-fl.wav file first
-  [[ -s "${work_prefix}-channels-adj-fl.wav" ]] && return 0;
+  # To rerun, delete the *-adj-fl.wav file first
+  [[ -s "${work_prefix}-adj-fl.wav" ]] && return 0;
 
   # Check for all dependent files
   # Force hts-explode to (re)make all if one is missing
   files_ready=0;
   for channel in $audio_layout; do
-    [[ -s "${work_prefix}-channels-$channel.wav" ]] || files_ready=1;
+    [[ -s "${work_prefix}-$channel.wav" ]] || files_ready=1;
   done
   [[ 0 = $files_ready ]] || {
-    rm -f "${work_prefix}-channels-fl.wav";
+    rm -f "${work_prefix}-fl.wav";
     echo "One, or more, of the channel files not found.";
     echo "... Creating ...";
     echo "";
@@ -82,7 +97,7 @@ function do_normalize {
         channel_dyna="$audio_dyna_extras"
         ;;
     esac
-    multi_launch "Normalize ${audio_label} ${channel^^} channel" bash -c "FFREPORT=file='fixvid-${work_prefix}-${channel}.part':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-channels-$channel.wav' -map 0:0 -af $audio_dyna_origin $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title [${channel^^}] (Enhanced)' -c:0 pcm_s16le -b:a 384k $use_threads $file_meta $output_flags '${work_prefix}-channels-adj-$channel.wav'"
+    multi_launch "${audio_label} Normalize ${channel^^} channel" bash -c "FFREPORT=file='fixvid-${work_prefix}-${channel}.part':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-$channel.wav' -map 0:0 -af $channel_dyna $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title [${channel^^}] (Enhanced)' -c:0 pcm_s16le -b:a 384k $use_threads $file_meta $output_flags '${work_prefix}-adj-$channel.wav'"
   done
 
   wait
