@@ -110,13 +110,6 @@ function multi_channel_setup {
   # Set the output filename base
   work_prefix="${work_files}-sound-${audio_label}";
 
-  # There must be at least one form of the stream included
-  # Defaults to stereo if nothing is selected
-  [[ 1 = $audio_include_stereo ]] || \
-  [[ 1 = $audio_include_channels ]] || \
-  [[ 1 = $audio_include_dts ]] || \
-    audio_include_stereo=1;
-
   # There needs to be at least one audio codec included
   # Defaults to AC3
   [[ 1 = $audio_include_ac3 ]] || \
