@@ -61,15 +61,12 @@ function do_explode {
   # Test for surround sound and load surround sound settings
   multi_channel_setup || return 0;
 
-  # Set the output filename base
-  work_prefix="${work_prefix}-channels";
-
   # Check for, and set the title of the streams
   [[ $audio_title ]] || audio_title="$video_title surround sound";
 
   # Skip this if it has already been done.
   # To rerun, delete the *-fl.wav file first
-  [[ -s "${work_prefix}-fl.wav" ]] && return 0;
+  [[ -s "${work_prefix}-mono-fl.wav" ]] && return 0;
 
   unset channels_out;
   unset channel_out;
@@ -78,7 +75,7 @@ function do_explode {
   for channel in $audio_layout; do
     channel_pad="[${channel^^}]";
     pad_list="${pad_list}${channel_pad}";
-    channel_out="-map [${channel^^}] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title ${channel^^} Channel' -c:0 pcm_s16le -b:a 384k $use_threads $audio_only $file_meta $output_flags '${work_prefix}-${channel,,}.wav'"
+    channel_out="-map [${channel^^}] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title ${channel^^} Channel' -c:0 pcm_s16le -b:a 384k $use_threads $audio_only $file_meta $output_flags '${work_prefix}-mono-${channel,,}.wav'"
     channels_out="${channels_out} ${channel_out}";
   done
 
@@ -86,12 +83,12 @@ function do_explode {
   # They don't need to be created after the first time
   [[ 1 = $audio_make_aac ]] || \
   [[ 1 = $audio_include_aac ]] && \
-  [[ ! -s "${work_prefix}.aac" ]] && \
-    multi_launch "${audio_label} Original to AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $audio_only $use_threads $output_flags '${work_prefix}.aac'";
+  [[ ! -s "${work_prefix}-remix.aac" ]] && \
+    multi_launch "${audio_label} Original to AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-remix-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $audio_only $use_threads $output_flags '${work_prefix}-remix.aac'";
   [[ 1 = $audio_make_ac3 ]] || \
   [[ 1 = $audio_include_ac3 ]] && \
-  [[ ! -s "${work_prefix}.ac3" ]] && \
-    multi_launch "${audio_label} Original to AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 ac3 -b:a 640k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
+  [[ ! -s "${work_prefix}-remix.ac3" ]] && \
+    multi_launch "${audio_label} Original to AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-remix-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title' -c:0 ac3 -b:a 640k $audio_only $use_threads $output_flags '${work_prefix}-remix.ac3'";
 
   # Extract the channels
   multi_launch "${audio_label} Split channels" bash -c "FFREPORT=file='fixvid-${work_prefix}-explode-channels.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i $audio_source -filter_complex '[0:$audio_stream] channelsplit=channel_layout=$audio_channels $pad_list' $channels_out";

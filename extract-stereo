@@ -76,5 +76,3 @@ work_prefix="${work_prefix}-stereo";
 [[ 1 = $audio_include_ac3 ]] && \
 [[ ! -s "${work_prefix}.ac3" ]] && \
   multi_launch "${audio_label} Copy to AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '$audio_source' -map 0:$audio_stream $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='${audio_title}' -c:0 ac3 -b:a 192k $audio_only $use_threads $output_flags '${work_prefix}.ac3'";
-
-wait;

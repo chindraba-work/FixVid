@@ -89,5 +89,4 @@ fi
 [[ -s fixvid.conf ]] && . fixvid.conf;
 
 # Call the command passed in, forwarding all other command line args
-time $fixvid_dir/$command_check "$@";
-
+time source $fixvid_dir/$command_check "$@";

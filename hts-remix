@@ -60,28 +60,25 @@ function do_remix {
   # Test for surround sound and load surround sound settings
   multi_channel_setup || return 0;
 
-  # Set the output filename base
-  work_prefix="${work_prefix}-channels";
-
   # Check for, and set the title of the streams
   [[ $audio_title ]] || audio_title="$video_title surround sound";
 
   # Skip this if it has already been done.
-  # To rerun, delete the *-remix.* files first
+  # To rerun, delete the *-remix-norm.* files first
   [[ 1 != $audio_make_ac3 ]] && \
   [[ 1 != $audio_include_ac3 ]] && \
     extension='aac' || extension='ac3';
-  [[ -s "${work_prefix}-remix.$extension" ]] && \
+  [[ -s "${work_prefix}-remix-norm.$extension" ]] && \
     return 3;
 
   # Check for all dependent files
   # Force hts-normalize to (re)make all if one is missing
   files_ready=0;
   for channel in $audio_layout; do
-    [[ -s "${work_prefix}-adj-$channel.wav" ]] || files_ready=1;
+    [[ -s "${work_prefix}-mono-e$channel.wav" ]] || files_ready=1;
   done
   [[ 0 = $files_ready ]] || {
-    rm -f "${work_prefix}-adj-fl.wav";
+    rm -f "${work_prefix}-mono-afl.wav";
     echo "Normalized files not found.";
     echo " ... Creating ...";
     echo "";
@@ -94,7 +91,7 @@ function do_remix {
   unset pad_list;
   channel_count=0;
   for channel in $audio_layout; do
-    channel_in="$input_flags -i ${work_prefix}-adj-${channel}.wav";
+    channel_in="$input_flags -i ${work_prefix}-mono-a${channel}.wav";
     channel_pad="[$channel_count:0]";
     channels_in="${channels_in} ${channel_in}";
     pad_list="${pad_list}${channel_pad}";
@@ -103,12 +100,10 @@ function do_remix {
 
   [[ 1 = $audio_make_aac ]] || \
   [[ 1 = $audio_include_aac ]] && \
-    multi_launch "${audio_label} Remix to AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-remix-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $channels_in -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $audio_maping [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $use_threads $file_meta '${work_prefix}-remix.aac'";
+    multi_launch "${audio_label} Remix to AAC" bash -c "FFREPORT=file='fixvid-${work_prefix}-remix-norm-aac.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $channels_in -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $audio_maping [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title (Enhanced)' -c:0 libfdk_aac -profile:a aac_he -b:a 384k $use_threads $file_meta '${work_prefix}-remix-norm.aac'";
   [[ 1 = $audio_make_ac3 ]] || \
   [[ 1 = $audio_include_ac3 ]] && \
-    multi_launch "${audio_label} Remix to AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-remix-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $channels_in -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $audio_maping [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title (Enhanced)' -c:0 ac3 -b:a 640k $use_threads $file_meta '${work_prefix}-remix.ac3'";
-
-  wait
+    multi_launch "${audio_label} Remix to AC3" bash -c "FFREPORT=file='fixvid-${work_prefix}-remix-norm-ac3.log':level=40 ffmpeg -hide_banner -y -loglevel error -stats $channels_in -filter_complex '$pad_list amerge=inputs=$channel_count [CHANNELS];[CHANNELS] $audio_maping [OUT]' -map [OUT] $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title (Enhanced)' -c:0 ac3 -b:a 640k $use_threads $file_meta '${work_prefix}-remix-norm.ac3'";
 }
 
 
@@ -117,3 +112,4 @@ function do_remix {
 
 process_group do_remix $group $required $target_num $group_fields;
 
+wait;

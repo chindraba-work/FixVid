@@ -76,7 +76,6 @@ function get_stereo {
         return
         ;;
   esac
-  wait;
 }
 
 # Read the optional argument.
@@ -84,4 +83,5 @@ function get_stereo {
 
 process_group get_stereo $group $required $target_num $group_fields;
 
+wait;
 

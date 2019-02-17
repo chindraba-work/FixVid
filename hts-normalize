@@ -60,24 +60,21 @@ function do_normalize {
   # Test for surround sound and load surround sound settings
   multi_channel_setup || return 0;
 
-  # Set the output filename base
-  work_prefix="${work_prefix}-channels";
-
   # Check for, and set the title of the streams
   [[ $audio_title ]] || audio_title="$video_title surround sound";
 
   # Skip this if it has already been done.
-  # To rerun, delete the *-adj-fl.wav file first
-  [[ -s "${work_prefix}-adj-fl.wav" ]] && return 0;
+  # To rerun, delete the *-mono-afl.wav file first
+  [[ -s "${work_prefix}-mono-afl.wav" ]] && return 0;
 
   # Check for all dependent files
   # Force hts-explode to (re)make all if one is missing
   files_ready=0;
   for channel in $audio_layout; do
-    [[ -s "${work_prefix}-$channel.wav" ]] || files_ready=1;
+    [[ -s "${work_prefix}-mono-$channel.wav" ]] || files_ready=1;
   done
   [[ 0 = $files_ready ]] || {
-    rm -f "${work_prefix}-fl.wav";
+    rm -f "${work_prefix}-mono-fl.wav";
     echo "One, or more, of the channel files not found.";
     echo "... Creating ...";
     echo "";
@@ -97,7 +94,7 @@ function do_normalize {
         channel_dyna="$audio_dyna_extras"
         ;;
     esac
-    multi_launch "${audio_label} Normalize ${channel^^} channel" bash -c "FFREPORT=file='fixvid-${work_prefix}-${channel}.part':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-$channel.wav' -map 0:0 -af $channel_dyna $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title [${channel^^}] (Enhanced)' -c:0 pcm_s16le -b:a 384k $use_threads $file_meta $output_flags '${work_prefix}-adj-$channel.wav'"
+    multi_launch "${audio_label} Normalize ${channel^^} channel" bash -c "FFREPORT=file='fixvid-${work_prefix}-${channel}.part':level=40 ffmpeg -hide_banner -y -loglevel error -stats $input_flags -i '${work_prefix}-mono-$channel.wav' -map 0:0 -af $channel_dyna $strip_meta_all $file_meta -metadata:s:0 language=$audio_lang -metadata:s:0 title='$audio_title [${channel^^}] (Enhanced)' -c:0 pcm_s16le -b:a 384k $use_threads $file_meta $output_flags '${work_prefix}-mono-a$channel.wav'"
   done
 
   wait

@@ -92,6 +92,7 @@ function process_group {
     # Check for completion
     [[ $group_all ]] && [[ $group_num < $group_limit ]] && group_continue=1 || unset group_continue;
   done
+  wait;
 }
 
 function multi_channel_setup {
