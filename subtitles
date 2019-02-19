@@ -35,42 +35,30 @@
 # proper parameters set. May launch the extraction multiple times if
 # there are multiple occurrences of the configuration variables.
 #
-
-# Load the configuration file
-[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
-
-# Load the helper functions and common settings
-source "$fixvid_dir/helpers";
-
-group='subs';
-required='stream';
-group_fields='source stream label title type lang';
+source "$fixvid_dir/extract-subtitles-text";
+source "$fixvid_dir/extract-subtitles-dvd";
 
 # The function to extract the subtitle file(s)
 function get_subtitles {
-  # Check for, and set the source file
-  [[ $subs_source ]] || subs_source="$video_source";
-  # Check for, and set the language for the subtitles
-  [[ $subs_lang ]] || subs_lang="$video_lang";
   # Set the output filename base
-  work_prefix="${work_files}-subs-$subs_label";
+  subs_prefix="${work_files}-subs-$subs_label";
 
   case ${subs_type,,} in
     text|subrip|srt|ass|aas  )
-      source "$fixvid_dir/extract-subtitles-text"
+      process_extract_text_subtitles;
       ;;
     dvd_sub*|vobsub )
-      source "$fixvid_dir/extract-subtitles-dvd"
+      process_extract_dvd_subtitles;
       ;;
     * )
-      exit 3
+      return 0
       ;;
   esac
 }
 
-# Read the optional argument.
-[[ $1 ]] && target_num=$1 || target_num=0;
+  # Read the optional target
+  [[ $1 ]] && subs_target=$1 || subs_target=0;
 
-process_group get_subtitles $group $required $target_num $group_fields;
+  process_group get_subtitles 'subs' $subs_target;
 
-wait;
+  wait;

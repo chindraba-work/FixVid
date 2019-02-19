@@ -39,17 +39,10 @@
 # require a separate launcher with the ability to discriminate the
 # variables from the config file and options from the command line.
 #
+function process_extract_text_subtitles {
+  # Skip this if it has already been done.
+  # To rerun, delete the created .ass file first
+  [[ -s "${subs_prefix}.ass" ]] && return 0;
 
-# Skip this if it has already been done.
-# To rerun, delete the created .ass file first
-[[ -s "${work_prefix}.ass" ]] && return 0;
-
-multi_launch "Subtitles $subs_label" bash -c "FFREPORT=file=\
-'fixvid-${work_prefix}.log':level=40 \
-ffmpeg -hide_banner -loglevel error -stats -y \
-$input_flags -i '$subs_source' \
-$strip_meta_all $file_meta \
--map 0:$subs_stream -metadata:s:0 language='$subs_lang' \
--c:0 ass \
-$subtitles_only $use_threads $output_flags \
-'$work_prefix.ass'";
+  multi_launch "Subtitles $subs_label" bash -c "FFREPORT=file='fixvid-${subs_prefix}.ass.log':level=40 ffmpeg -hide_banner -loglevel error -stats -y $input_flags -i '$subs_source' $strip_meta_all $file_meta -map 0:$subs_stream -metadata:s:0 language='$subs_lang' -c:0 ass $subtitles_only $use_threads $output_flags '${subs_prefix}.ass'";
+}

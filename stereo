@@ -37,51 +37,31 @@
 # there are multiple occurrences of the configuration variables.
 #
 
-# Load the configuration file
-[[ -s fixvid.conf ]] && . fixvid.conf || exit 4;
-
-# Load the helper functions and common settings
-source "$fixvid_dir/helpers";
-
-group='audio';
-required='stream';
-group_fields="source stream label lang title channels layout mapping \
-mixing dyna_stereo dyna_center dyna_origin dyna_extras dyna_others \
-make_ac3 include_ac3 make_aac include_aac \
-make_channels include_channels include_stereo \
-make_custom include_custom codec filter complex ext";
+source "$fixvid_dir/extract-stereo";
+source "$fixvid_dir/hts-downmix";
 
 # The function to extract the stereo files
 function get_stereo {
-  # Test for surround sound and load surround sound settings
-  multi_channel_setup;
-  channel_check=$?;
-  case "$channel_check" in
-    0 ) # Presumed surround sound source
-        [[ 1 = $audio_include_stereo ]] && \
-          source "$fixvid_dir/hts-downmix";
-        ;;
-    1 ) # Some unknown setting for audio_channels
-        return
-        ;;
-    2 ) # Presumed stereo source
-        source "$fixvid_dir/extract-stereo";
-        ;;
-#     255 ) # Template for something else. choose the number wisely...
-#         [[ 1 = $audio_make_custom ]] ||
-#         [[ 1 = $audio_include_custom ]] && \
-#           source "$fixvid_dir/new-codec-command";
-#         ;;
-    * )
-        return
-        ;;
-  esac
+  # Set the output filename base
+  stereo_prefix="${work_files}-sound-${audio_label}-stereo";
+  stereo_norm_prefix="${stereo_prefix}-norm";
+
+  # Skip this if it has already been done.
+  # To rerun, delete the *-stereo-norm.* files first
+  [[ 1 -ne $audio_make_aac ]] && \
+  [[ 1 -ne $audio_include_aac ]] && \
+    extension='ac3' || extension='aac';
+  [[ -s "${stereo_norm_prefix}.$extension" ]] && return 0;
+
+
+  [[ $audio_include_stereo ]] && \
+  [[ $audio_mixing ]] && \
+    process_hts_downmix || process_extract_stereo;
+  return 0;
 }
 
-# Read the optional argument.
-[[ $1 ]] && target_num=$1 || target_num=0;
+  # Read the optional target
+  [[ $1 ]] && stereo_target=$1 || stereo_target=0;
 
-process_group get_stereo $group $required $target_num $group_fields;
-
-wait;
-
+  process_group get_stereo 'audio' $stereo_target;
+  wait;
