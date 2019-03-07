@@ -1,0 +1,116 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  remix-channels: process surround sound streams creating original    #
+#                  and enhanced volume versions.                       #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+function copy_surround {
+  reset_ffmpeg_data;
+  check $current_make_original || \
+  check $force_run || \
+    return 0;
+  check $current_make_channels || \
+  check $current_make_dts ||
+  check $force_run || \
+    return 0;
+  check $current_make_ac3 && check $current_make_original && \
+  [[ ! -s "${current_base}.ac3" ]] || \
+  check $force_run && {
+    ac3_bitrate="$ac3_channel_bitrate";
+    build_ffmpeg_audio_encode 'ac3' '[Surround Sound]';
+    shared_launch "${current_label} AC3" \
+      "${current_label}_channel_copy_ac3" bash -c "$ffmpeg_command";
+    reset_ffmpeg_data;
+  }
+  check $current_make_aac && check $current_make_original && \
+  [[ ! -s "${current_base}.aac" ]] || \
+  check $force_run && {
+    aac_bitrate="$aac_channel_bitrate";
+    build_ffmpeg_audio_encode 'aac' '[Surround Sound]';
+    shared_launch "${current_label} AAC" \
+      "${current_label}_channel_copy_aac" bash -c "$ffmpeg_command";
+    reset_ffmpeg_data;
+  }
+  return 0;
+}
+
+function remix_channels {
+  reset_ffmpeg_data;
+  [[ 2 = $current_channels ]] && return 0;
+  launch copy_surround 'audio' $current_target $force_run;
+  check $current_make_enhanced || \
+  check $force_run || \
+    return 0;
+  check $current_make_channels || check $current_make_dts || \
+  check $force_run || \
+    return 0;
+  sources_missing=0;
+  for channel in $current_layout; do
+    [[ -s "${current_base}-channel-adj-${channel,,}.wav" ]] || \
+      sources_missing=1;
+  done
+  check $sources_missing || \
+  check $force_run && \
+    launch normalize_channels 'audio' $current_target $force_run;
+  output_pad="[AOUT]";
+  channel_count=0;
+  unset pad_list;
+  unset input_list;
+  unset pid_list;
+  for channel in $current_layout; do
+    input_pad="[$channel_count:0]";
+    pad_list+="$input_pad";
+    build_ffmpeg_input "${current_base}-channel-adj-${channel,,}.wav";
+    input_list+=" $ffmpeg_input";
+    pid_var="${current_label}_${channel,,}_adj_pid";
+    [[ ${!pid_var} ]] && pid_list+=" ${!pid_var}";
+    (( channel_count++ ));
+  done
+  filter_graph="-filter_complex '${pad_list} amerge=inputs=${channel_count} [CHANNELS];\
+    [CHANNELS] ${current_mapping} ${output_pad}'";
+  for pid in $pid_list; do
+    wait $pid 2&>/dev/null;
+  done
+  check $current_make_ac3 && [[ ! -s "${current_base}-norm.ac3" ]] || \
+  check $force_run && {
+    ac3_bitrate="$ac3_channel_bitrate";
+    build_ffmpeg_audio_encode 'ac3' '[Enhanced Surround Sound]' 'norm';
+    shared_launch "${current_label} Norm AC3" \
+      "${current_label}_channel_norm_ac3" bash -c "$ffmpeg_command";
+  }
+  check $current_make_aac && [[ ! -s "${current_base}-norm.aac" ]] || \
+  check $force_run && {
+    aac_bitrate="$aac_channel_bitrate";
+    build_ffmpeg_audio_encode 'aac' '[Enhanced Surround Sound]' 'norm';
+    shared_launch "${current_label} Norm AAC" \
+      "${current_label}_channel_norm_aac" -c "$ffmpeg_command";
+  }
+  return 0;
+}
