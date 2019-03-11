@@ -2,6 +2,18 @@ SmallSite
 
 Changelog
 
+v0.2.0
+
+    - Add ability to show/hide FFMPEG running stats
+    - Add parallel processing to creation of all non video-based streams
+    - Add a one-shot command for final video creation
+    - Increase granularity of audio stream selection in final video
+    - Increase granularity of non-included audio stream creation
+    - Add the ability to include multiple versions of audio streams
+    - Rework the help section
+    - Convert all commands into functions
+    - Factor out group processing for video and subtitles
+
 v0.1.2
 
     - Add overlooked changes in command files
