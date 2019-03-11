@@ -8,7 +8,8 @@
 #  and re-encode video files to create an acceptable version for a     #
 #  standardized collection or library of videos.                       #
 #                                                                      #
-#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
+#  Copyright © 2018, 2019  Chindraba (Ronald Lamoreaux)                #
+#                          <fixvid@chindraba.work>                     #
 #  - All Rights Reserved                                               #
 #                                                                      #
 #  FixVid is free software; you can redistribute it and/or             #
@@ -29,101 +30,123 @@
 #        USA.                                                          #
 #                                                                      #
 ########################################################################
+
+fixvid_version="0.2.0";
+
 echo "";
-# Find the true directory for the fixvid code base, and share it below
-# all other fixvid commands will now be callable from within the code as
-# "$fixvid_dir/command"
+echo "FixVid version $fixvid_version Copyright (c) 2018, 2019 Chindraba - All Rights Reserved";
+echo "";
 fixvid_source="${BASH_SOURCE[0]}"
 
-# Resolve $fixvid_source until the file is no longer a symlink
 while [ -L "$fixvid_source" ]; do
   fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )"
   fixvid_source="$(readlink "$fixvid_source")"
-  # If $fixvid_source was a relative symlink, we need to resolve it
-  # relative to the path where the symlink file was located
   [[ $fixvid_source != /* ]] && fixvid_source="$fixvid_dir/$fixvid_source"
 done
-export fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
+fixvid_dir="$( cd -P "$( dirname "$fixvid_source" )" && pwd )";
+source "$fixvid_dir/functions";
+video_lang="und"
+[[ -s fixvid.conf ]] && source fixvid.conf;
 
-# Check for the existence of a command.
-if [ -z $1 ]; then
-  "$fixvid_dir/usage" $(basename $0);
+function no_command {
   cat <<NOCMD | cat;
 
     No $(basename $0) command given.
 
     For available commands, use:
-    $ $(basename $0) help
-
+    $(basename $0) help
 
 NOCMD
   exit;
-fi
+}
 
-# Check for a valid command, meaning there is a same-named, executable
-# file in the fixvid root directory.
-command_check=$1;
-shift;
+function bad_command {
+  cat <<BADCMD | cat;
 
-if [ "xhelp" = "x${command_check,,}" ]; then
-  "$fixvid_dir/usage" $(basename $0);
-  exit;
-fi
-
-if [ ! -x "$fixvid_dir/$command_check" ]; then
-  "$fixvid_dir/usage" $(basename $0);
-  cat <<NONCMD | cat;
-
-    $command_check is not a valid $(basename $0) command.
+    $1 is not a valid $(basename $0) command.
 
     For available commands, use:
-    $ $(basename $0) help
+    $(basename $0) help
 
-NONCMD
+BADCMD
   exit;
-fi
-
-# Load the configuration file if it exists
-[[ -s fixvid.conf ]] && . fixvid.conf;
-
-# Create and export some text shortcuts and functions to use later.
-#
-# ffmpeg for ignoring all but the chosen type of stream
-export audio_only="-vn -sn -dn";
-export video_only="-an -sn -dn";
-export subtitles_only="-vn -an -dn";
-# ffmpeg to ignore input timestamps, and force creation of new ones
-export input_flags="-fflags +igndts";
-export output_flags="-fflags +genpts";
-# ffmpeg to leverage the multi-threading of the CPU, for aware libraries
-export use_threads="-threads 0";
-# ffmpeg to strip the metadata from the input file, except chapter times
-export strip_meta_only="-map_metadata -1";
-# ffmpeg to strip the metadata from the input file, including chapter times
-export strip_meta_all="-map_metadata -1 -map_chapters -1";
-export file_meta="-metadata creation_time='$timestamp' \
--metadata language=eng -metadata title='$video_title'"
-# Function to utilize multiple cores better
-# Sourced from an answer to "How do you run multiple programs in
-# parallel from a bash script?" on Stack Overflow. See:
-# https://stackoverflow.com/a/42098494/7412956
-# From user https://stackoverflow.com/users/2615062
-# All Stack Overflow contributions licensed under cc by-sa 3.0 with
-# attribution required.
-function multi_launch {
-local ident=$1;
-shift;
-echo "Processing $ident ...";
-"$@" && echo "... $ident complete" &
-local my_pid=$$
-local parallels=$(ps -eo ppid | grep -w $my_pid | wc -w)
-parallels=$((parallels-1))
-if [[ $parallels -ge $max_parallel ]]; then
-    wait -n
-fi
 }
-export -f multi_launch;
 
+[[ $1 ]] || no_command;
 
-# Call the command passed in, forwarding all other command line args
-time $fixvid_dir/$command_check "$@";
+command_check=$1;
+command_target=$2;
+force_run=${3:+1};
+for prefix in audio titles video; do
+  load_limit $prefix;
+done
+case "${command_check,,}" in
+  a|audio )
+    check $force_run && process_group audio_channels "$command_target";
+    process_group audio_stereo "$command_target";
+    check $force_run && process_group audio_normalize "$command_target";
+    process_group audio_remix "$command_target";
+    process_group audio_dts "$command_target";
+    ;;
+  d|dts )
+    process_group audio_dts "$command_target";
+    ;;
+  p_probe )
+    probe_file  "$command_target";
+    ;;
+  h|help )
+    help $(basename $0) "$command_target";
+    ;;
+  i|init )
+    init_dir;
+    ;;
+  all_sound )
+    check $force_run && process_group audio_channels 0;
+    process_group audio_stereo 0;
+    check $force_run && sleep 1;
+    check $force_run && process_group audio_normalize 0;
+    process_group audio_remix 0;
+    check $force_run && sleep 1;
+    process_group audio_dts 0;
+    ;;
+  c|channels )
+    process_group audio_channels "$command_target";
+    ;;
+  m|remix )
+    process_group audio_remix "$command_target";
+    ;;
+  n|normalize )
+    process_group audio_stereo "$command_target";
+    process_group audio_normalize "$command_target";
+    ;;
+  g|go|one_shot )
+    check $force_run && process_group audio_channels 0;
+    process_group audio_stereo 0;
+    check $force_run && sleep 1;
+    check $force_run && process_group audio_normalize 0;
+    process_group audio_remix 0;
+    check $force_run && sleep 1;
+    process_group audio_dts 0;
+    sleep 1;
+    process_group video_remux 0;
+    ;;
+  r|remux )
+    process_group video_remux "$command_target";
+    ;;
+  s|stereo )
+    process_group audio_stereo "$command_target";
+    ;;
+  t|titles )
+    process_group titles_extract "$command_target";
+    ;;
+  v|video )
+    process_group video_extract "$command_target";
+    ;;
+  ver|version )
+    ;;
+  * )
+    bad_command $command_check
+    ;;
+esac
+wait
+echo "";

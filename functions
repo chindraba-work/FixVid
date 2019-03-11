@@ -1,0 +1,636 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  helpers: functions and settings common to multiple commands or      #
+#           used by the system itself rather than the processing       #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Chindraba (Ronald Lamoreaux)                #
+#                          <fixvid@chindraba.work>                     #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+declare -A usage;
+stack_num=0;
+
+source "$fixvid_dir/audio";
+source "$fixvid_dir/remux";
+source "$fixvid_dir/titles";
+source "$fixvid_dir/video";
+
+#  General processing functions
+
+function check {
+  ! (( $1-1 ));
+}
+
+function clear_settings {
+  local field;
+  for field in ${!current_*} ${control_fields}; do
+    unset ${field};
+  done
+  return 0;
+}
+
+function probe_file {
+  local check_file=$1;
+  [[ -s "$check_file" ]] || return 0;
+  ffprobe "$check_file" 2>&1 | grep -A 2 -E '^\s*(Chapter|Duration|Stream)' | grep -v '^--';
+  return 0;
+}
+
+function init_dir {
+  local section;
+  [[ -s fixvid.conf ]] || for section in main video titles audio; do
+    config="${section}_config";
+    $config;
+  done
+  if [[ -s "movie" ]]; then
+    echo "";
+    echo "********************************************************************************" | tee -a "fixvid.scan";
+    echo "    Reading movie:" | tee "fixvid.scan";
+    echo "--------------------------------------------------------------------------------" | tee -a "fixvid.scan";
+    probe_file "movie" | tee -a "fixvid.scan";
+    echo "" | tee -a "fixvid.scan";
+    echo "" | tee -a "fixvid.scan";
+  fi
+  local file_type;
+  local filename;
+  for file_type in $scan_extensions; do
+    for filename in *.$file_type; do
+      if [ -s "$filename" ]; then
+        echo "";
+        echo "********************************************************************************" | tee -a "fixvid.scan";
+        echo "    Reading $filename:" | tee -a "fixvid.scan";
+        echo "--------------------------------------------------------------------------------" | tee -a "fixvid.scan";
+        probe_file "$filename" | tee -a "fixvid.scan";
+        echo "" | tee -a "fixvid.scan";
+        echo "" | tee -a "fixvid.scan";
+      fi
+    done
+  done
+  return 0;
+}
+
+function launch {
+  local launch_command="$1";
+  local new_prefix="${launch_command%%_*}";
+  local new_target=$2;
+  local range_var="${new_prefix}_limit";
+  (( 0 < $new_target )) && (( $new_target < ${!range_var} )) || return 0;
+  cache_settings;
+  clear_settings;
+  load_settings $new_prefix $new_target;
+  current_base="${work_files}-${current_prefix}-${current_label}${3:+-$3}";
+  saved_base="$current_base";
+  saved_title="$current_title";
+  $launch_command "$new_target";
+  recall_settings;
+  return 0;
+}
+
+function load_limit {
+  local load_prefix="$1";
+  local load_var="${load_prefix}_key";
+  local load_key="${!load_var}";
+  local load_limit=1;
+  local var="${load_prefix}_${load_key}_${load_limit}";
+  while [[ ${!var} ]]; do
+    ((load_limit++));
+    var="${load_prefix}_${load_key}_${load_limit}";
+  done;
+  declare -g ${load_prefix}_limit=$load_limit;
+  return 0;
+}
+
+function load_settings {
+  clear_settings;
+  current_prefix="$1";
+  current_target="${2:-1}";
+  [[ 0 == $2 ]] && current_target=1;
+  local var="${current_prefix}_limit";
+  current_limit=${!var};
+  [[ $current_target -lt $current_limit ]] || return 0;
+  local field_list="${current_prefix}_fields";
+  local field;
+  for field in ${!field_list}; do
+    var="${current_prefix}_${field}_${current_target}";
+    declare -g current_${field}="${!var}";
+  done
+  declare -g current_source="${current_source:-$main_source}"
+  declare -g current_lang="${current_lang:-$main_lang}"
+  declare -g current_label="${current_label:-${current_prefix}-${current_target}}"
+  declare -g current_title="${current_title:-$main_title}"
+  [[ 'audio' = $current_prefix ]] && load_audio_settings;
+  return 0;
+}
+
+function recall_settings {
+  clear_settings;
+  (( 0 < $stack_num )) || return 0;
+  (( stack_num-- ));
+  var="stack_${stack_num}_prefix";
+  current_prefix="${!var}";
+  fields="${current_prefix}_fields";
+  for field in ${!fields} ${control_fields}; do
+    var="stack_${stack_num}_${field}";
+    [[ ${!var} ]] && declare -g current_${field}="${!var}"
+  done
+  return 0;
+}
+
+function cache_settings {
+  [[ $current_prefix ]] || return 0;
+  local fields="${current_prefix}_fields";
+  local field;
+  local var;
+  for field in ${!fields} ${control_fields}; do
+    var="current_${field}";
+    [[ ${!var} ]] && declare -g stack_${stack_num}_${field}="${!var}";
+  done
+  (( stack_num++ ));
+  return 0;
+}
+
+function process_group {
+  [[ $1 ]] || return;
+  cache_settings;
+  load_settings "${1%%_*}" "${2:-0}";
+  [[ 0 -eq ${2:-0} ]] && current_all=1 || unset current_all;
+  current_process="$1";
+  [[ $current_target -lt $current_limit ]] && current_continue=1 || unset current_continue;
+  while check $current_continue; do
+    launch $current_process $current_target $3;
+    (( current_target++ ));
+    check $current_all && check $current_continue && \
+    [[ $current_target -lt $current_limit ]] || \
+      unset current_continue;
+  done
+  recall_settings;
+  return 0;
+}
+
+function shared_launch {
+# Function to utilize multiple cores better
+#
+# Code from 'arnaldocan' https://stackoverflow.com/users/2615062 on
+# StackOverflow. An answer to "How do you run multiple programs in
+# parallel from a bash script?". See:
+# https://stackoverflow.com/a/42098494/7412956
+#
+# All Stack Overflow contributions licensed under cc by-sa 3.0 with
+# attribution required.
+
+  local ident=$1;
+  shift;
+  local block=$1;
+  shift;
+  check $block && check $max_parallel || {
+    echo "$ident is pending full access";
+    wait;
+  }
+  local run_time="";
+  local finish_time="";
+  local finish_epoch="";
+  local launch_time=$(date +"%T");
+  local launch_epoch=$(date +"%s.%N");
+  echo "Processing $ident ...";
+ "$@" && {
+   finish_epoch=$(date +"%s.%N");
+   finish_time=$(date +"%T");
+   run_time=$(echo "$finish_epoch - $launch_epoch" | bc -l);
+   echo "... $ident complete ($launch_time - $finish_time) [$run_time sec]";
+ } &
+  local pid=$!;
+  local my_pid=$$
+  [[ 1 == $block ]] && \
+    wait $pid;
+  [[ 1 == $block ]]  || \
+    [[ '-' == $block ]] || \
+    [[ 0 == $block ]] || {
+      declare -g ${block}_pid=$pid;
+    }
+  local parallels=$(ps -eo ppid | grep -w $my_pid | wc -w)
+  parallels=$((parallels-1))
+  if (( parallels >= max_parallel )); then
+      wait -n
+  fi
+  return 0;
+}
+
+#  FFMPEG stream manipulation functions
+
+function reset_ffmpeg_data {
+  local var;
+  for var in $ffmpeg_variables; do
+    unset $var;
+  done
+  return 0;
+}
+
+function build_ffmpeg_audio_encode {
+  local my_codec=${1:-ac3};
+  local my_param="${my_codec}_encode";
+  local my_encode="${!my_param}";
+  local my_bitrate="${my_codec}_bitrate";
+  local my_bits="${!my_bitrate}";
+  local temp_title="$current_title";
+  local temp_base="$current_base";
+  current_title="${temp_title}${2:+ $2}";
+  current_base="${temp_base}${3:+-$3}";
+  codec_part="${my_encode:+-c:a $my_encode}${my_bits:+ -b:a $my_bits}";
+  [[ ${4+zz} ]] || [[ ! $filter_graph ]] && filter_graph="$4";
+  [[ ${5+yy} ]] || [[ ! $output_pad ]] && output_pad="$5";
+  build_ffmpeg_stream;
+  build_ffmpeg_output "${my_codec}" "$audio_only";
+  build_ffmpeg_preamble "${current_base}.${my_codec}";
+  build_ffmpeg_command;
+  current_title="$temp_title";
+  current_base="$temp_base";
+  return 0;
+}
+
+function build_ffmpeg_command {
+  [[ $ffmpeg_preamble ]] || build_ffmpeg_preamble "${current_base}.mkv";
+  [[ $input_list ]] || [[ $ffmpeg_input ]] || build_ffmpeg_input;
+  [[ $meta_filter ]] || build_meta_filter;
+  ffmpeg_command="$ffmpeg_preamble \
+    ${input_list:-$ffmpeg_input} \
+    $meta_filter \
+    $filter_graph \
+    ${stream_list:-$ffmpeg_stream} \
+    $ffmpeg_output";
+  return 0;
+}
+
+function build_ffmpeg_input {
+  ffmpeg_input="$input_flags -i '${1:-$current_source}'";
+  return 0;
+}
+
+function build_ffmpeg_output {
+  [[ $file_meta ]] || build_file_meta;
+  ffmpeg_output="$file_meta $use_threads $output_flags $2\
+    ${current_base}${3:+-$3}.${1:-mkv}"
+  return 0;
+}
+
+function build_ffmpeg_preamble {
+  ffmpeg_preamble="FFREPORT=file='fixvid-$1.log':level=40 ffmpeg -hide_banner -y -loglevel error";
+  check $2 || \
+  ! check $hide_stats && \
+    ffmpeg_preamble+=" -stats";
+  return 0;
+}
+
+function build_ffmpeg_stream {
+  [[ $output_pad ]] ||
+    output_pad="0:${current_stream:-0}";
+  [[ $stream_meta ]] || build_stream_meta;
+  ffmpeg_stream="-map $output_pad $codec_part $stream_meta";
+  [[ $ffmpeg_output ]] && \
+    ffmpeg_stream+=" $ffmpeg_output" && \
+    unset ffmpeg_output;
+  return 0;
+}
+
+function build_file_meta {
+  local alt_title="$main_title${1:+ [$1]}";
+  [[ ! $1 ]] && [[ $current_label ]] && \
+    alt_title+=" $current_prefix (${current_label})";
+  file_meta="-metadata 'creation_time=$timestamp' \
+    -metadata 'lang=${current_lang:-$main_lang}' \
+    -metadata 'title=${current_title:-$alt_title}'";
+  return 0;
+}
+
+function build_meta_filter {
+  meta_filter="$strip_meta -map_chapters ${1:--1}";
+  return 0;
+}
+
+function build_stream_meta {
+  local alt_title="$main_title${2:+ ($2)}";
+  [[ ! $2 ]] && [[ $current_label ]] && \
+    alt_title+=" $current_prefix (${current_label})";
+  stream_meta="-metadata:s:${1:-0} 'lang=${current_lang:-$main_lang}' \
+    -metadata:s:${1:-0} 'title=${current_title:-$alt_title}'";
+  return 0;
+}
+
+control_fields="base limit list prefix target all continue process";
+scan_extensions='mp4 mkv avi aac ac3 wav mp3';
+ffmpeg_variables="ffmpeg_command ffmpeg_preamble ffmpeg_input \
+  input_list meta_filter filter_graph output_pad codec_part \
+  stream_meta ffmpeg_stream stream_list file_meta ffmpeg_output";
+
+# Create some text shortcuts and functions to use later.
+#
+
+# ffmpeg to ignore input timestamps, and force creation of new ones
+input_flags="-fflags +igndts";
+output_flags="-fflags +genpts";
+# ffmpeg to leverage the multi-threading of the CPU, for aware libraries
+use_threads="-threads 0";
+# ffmpeg to strip the metadata from the input file, except chapter times
+strip_meta="-map_metadata -1";
+# ffmpeg to strip the metadata from the input file, including chapter times
+strip_chapters="-map_chapters -1";
+force_block=1;
+force_stats=1;
+
+#  General program related functions
+
+usage['[p] probe']=' <file_name>   Show filtered results for the streams in the file';
+function probe_help {
+  cat <<HELP_PROBE
+
+    probe <file>
+        run ffprobe on the listed file and filter the results, showing
+        the lines pertinent to the file's duration, chapter list, and
+        each stream located in the file.
+
+HELP_PROBE
+}
+
+usage['[i] init']='Scan source candidates, create the fixvid.conf file';
+function init_help {
+  cat <<HELP_INIT
+
+    init
+        Create the empty fixvid.conf file in the directory and scan for
+        all "mp4", "mkv", "avi", "aac", "ac3", "wav", and  "mp3" files
+        in the current directory and provide a filtered output from
+        ffprobe for each. The scan results are displayed, and recorded
+        in the fixvid.scan file. Included in the scan is a file named
+        "movie" without any file type or extension. This file may be any
+        of the supported types and FFMPEG can process it. This file, if
+        present, will be the first one scanned, and listed at the top of
+        the scan report.
+
+HELP_INIT
+}
+
+function target_help {
+  cat <<TARGET_HELP
+
+    <target_num>:
+        Many of the commands can make multiple versions of the streams
+        if they are listed in the config file. Each version has its own
+        group of settings. All audio settings are in audio_<param>_#,
+        subtitles settings are in titles_<param>_# and video settings are
+        in video_<param>_#. For subtitles and audio streams the _stream_
+        parameter is used to determine if that group of settings is to
+        be used, while for video streams the _codec_ parameter is used
+        to indicate an applicable group of settings. Each type of stream
+        uses its own sequence of numbers, all begin with 1, and the list
+        must be sequential, with no gaps. If group 2 is not enabled, any
+        other groups, from 3 and above, will not be used, even if they
+        are defined.
+
+        Commands with the optional argument of [<target_num>] accept a
+        number for the group of settings to process. If the number is a
+        valid choice, as determined above, then only that group will be
+        processed, while all others will be ignored. If the number is
+        not supplied, or is zero, all groups will be processed in one
+        run of the command.
+
+        As the standard for video files is to only have one primary
+        stream for the video, with the possibility of multiple streams
+        for the audio and subtitles, each group of settings for video
+        streams also indicates a version of the final video file(s) to
+        create. Aside from each having one version of the video, all the
+        final video files will have the same set of audio and subtitle
+        streams.
+
+TARGET_HELP
+}
+
+function target_num_help {
+  target_help
+}
+
+function force_help {
+  cat <<FORCE_HELP
+
+  It is availabe to force the system to (re-)create every file possible
+  with the given command by supplying an additional non-empty argument
+  to the command.
+
+  When used with a supplied <target_num> only the given stream will be
+  (re-)created (overwriting any previously made file.
+
+  When used with a <target_num> argument of zero (0) or an empty string
+  ('') it will (re-)create every available stream (overwriting any
+  previously made files).
+
+  For video and subtitle streams this has the same effect as deleting
+  the old files and running the command.
+
+  For audio files the effect is more extreme. Whether a single stream or
+  multiple streams is processed is again based on the <target_num>
+  argument. However, the system will process the stream(s) in such a
+  fashion as to make every possible combination of volume level and
+  codec. A stereo source will result in four files: original and
+  enhanced volume versions in both AAC and AC3 codecs. A surround sound
+  source will result in the same four stereo files, downmixed from
+  surround sound as well as an original and enhanced volume version in
+  AAC, AC3 and DTS codecs. Ten files in all. Thus overriding any of the
+  _make_ and _include_ settings in the fixvid.conf file.
+
+  For the remux (or one-shot) command, it is bit different. Each version
+  of the finished version will be (re-)created (similar to the effect on
+  video and subtitle streams). It will also (re-)create the video stream
+  and every included version of the subtitles. It will process each of
+  the audio streams that are marked as being included, in any version,
+  making all possible versions as if the audio command had been given
+  that <target_num> with the <force> argument set. Regardless of how
+  many audio files are (re-)created, only the versions explicitly set to
+  be included in the finished video will be included, and only audio and
+  subtitle streams which are to be included will be processed.
+
+FORCE_HELP
+}
+
+function main_config {
+tee 'fixvid.conf' << 'EOMAIN' >/dev/null
+
+########################################################################
+#                                                                      #
+#  fixvid.conf: configuration settings for the creation of the files   #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+#                        Final Product Settings                        #
+#                                                                      #
+########################################################################
+
+#  Set to make the system work "as-is" but not very informative
+
+#  The name of the file which has most, if not all, of the streams to
+#+ to be converted in the processing
+main_source='movie';
+
+
+#  Name of the video that is stored in the meta data of the files.
+#+ To use a double quote in the title use triple-escape, \\\"
+main_title="Name of the Movie";
+
+#  Year the video was produced/released
+main_year=2018;
+
+#  The language for the video, and the default language for included
+#+ audio and subtitle streams when not given individually.
+main_lang="eng";
+
+#  Name used as the prefix for work files, use shell-safe names
+work_files="my_video";
+
+#  Name used as the prefix for the final product files, stay shell-safe
+final_files="The_Movie_Name";
+
+#  The "time" when this was all collected and remuxed.
+timestamp=2018-10-31T13:21:08.69Z;
+
+########################################################################
+#                                                                      #
+#                       Process Control Settings                       #
+#                                                                      #
+########################################################################
+
+#  How many parallel processes to run, when using parallelism
+#+ Set to 1 to disable parallel processing, i.e. 1 at a time
+max_parallel=4;
+
+#  Flag to allow converting to the nVidia encoders
+enable_nvidia=true;
+
+#  Flag to not show the FFMPEG progress line during stream creation
+#= hide_stats=1;
+
+########################################################################
+#                                                                      #
+#                            Chapter Titles                            #
+#                                                                      #
+########################################################################
+
+#  Chapter titles are a special case. Chapter information is embedded in
+#+ the container rather than the stream(s). The process of creating the
+#+ component files is designed to strip out all the meta data from the
+#+ streams, and the chapter titles are "lost" in the process. So many of
+#+ the videos encountered so far have had meaningless 'title' for the
+#+ chapters. Either the chapter number, or the chapter start time, is
+#+ the common 'title,' and loosing those is of no consequence.
+#+ Attempting to preserve the title in the processing turns out to be
+#+ more work than to just add them back into the final product, when
+#+ they exist.
+
+#  Name of the file that has useful chapter data. Leave commented if none
+#= chapter_source='movie';
+
+EOMAIN
+}
+
+function help_main {
+  cat <<HELP_MAIN
+
+Usage: $1 <command> [arg [arg]]
+
+Processes files in the current directory, according to the information
+in the fixvid.conf file as steps in creating a new, remuxed, video file
+from the source file(s) in the directory.
+
+Available commands are:
+
+HELP_MAIN
+  mapfile -d '' commands < <(printf '%s\0' "${!usage[@]}" | sort -z);
+  for cmd in "${commands[@]}"; do
+    printf '  %-15s %s\n' "$cmd" "${usage[$cmd]}";
+  done
+  cat <<EXTRA_HELP
+
+Addtional topics available in help are:
+   target_num: How the <target_num> is validated and used
+   dynaudnorm: Common elements of the dynaudnorm audio filter
+   filters:    Links to FFMPEG documentation for common video filters
+   force:      (Re-)create streams, overwriting existing files
+
+Use $1 help <command|topic> for more information on each command or topic.
+
+EXTRA_HELP
+}
+
+function see_also {
+  echo "See also:"
+  local topic;
+  for topic in target_num dynaudnorm filters force; do
+    [[ $2 == $topic ]] ||
+      echo "    $1 help $topic";
+  done
+}
+
+function help {
+  [[ $2 ]] && {
+    cmd_name="$2";
+    cmd_name="${cmd_name,,}";
+    help_cmd="${cmd_name}_help";
+    ( declare -Ff $help_cmd > /dev/null ) || {
+      echo " $cmd_name is not a valid $1 command or help topic.";
+      return 0;
+    }
+    $help_cmd $1;
+    see_also $1 $cmd_name;
+  } || {
+    help_main $1;
+  }
+}
+
+
