@@ -1,0 +1,186 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  video: functions to extract different versions of the video stream  #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Chindraba (Ronald Lamoreaux)                #
+#                          <fixvid@chindraba.work>                     #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+function video_extract {
+  [[ ! -s "${current_base}.mkv" ]] || \
+  check $force_run || \
+    return 0;
+  [[ $current_adjust ]] && check $current_complex && {
+    filter_graph="-filter_complex '[0:${current_stream}] yadif\
+      ${current_equalizer:+[VEQ];[VEQ] $current_equalizer} [VIN];\
+      ${current_adjust}'";
+    output_pad="[VOUT]";
+  } || {
+    filter_graph="-vf 'yadif\
+      ${current_equalizer:+ ,$current_equalizer}\
+      ${current_adjust:+ ,$current_adjust}'";
+    output_pad="0:${current_stream:-0}"
+  }
+  [[ $enable_nvidia ]] && \
+  [[ ${current_codec,,} =~ hevc|h264 ]] && \
+    nvidia_part="nvenc";
+  codec_part="-c:0 ${current_codec,,}${nvidia_part:+_$nvidia_part} ${current_params}";
+  unset hide_stats;
+  build_ffmpeg_output "mkv" "$video_only";
+  build_ffmpeg_stream;
+  build_ffmpeg_command;
+  shared_launch "Extracting ${current_title} Video" $force_block \
+    bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
+  return 0;
+}
+
+video_key='codec';
+video_fields="source stream codec label lang title save \
+params equalizer adjust complex";
+
+# ffmpeg for ignoring all but the chosen type of stream
+video_only="-an -sn -dn";
+
+usage['[v] video']='[<target_num>] Create the bare video stream(s)';
+function video_help {
+  cat <<HELP_VIDEO
+
+    video [<target_num> [<force>]]
+        Extract the video from the file and stream identified in the
+        fixvid.conf file. Multiple streams can be created. For more
+        information on multiple streams, see: $1 help target_num.
+
+HELP_VIDEO
+
+}
+
+function filters_help {
+  cat <<'HELP_FILTER'
+
+The FFMPEG documentation for video filters can be found at:
+    https://ffmpeg.org/ffmpeg-filters.html#Video-Filters
+
+For documentation on some specific, and likely, video filters go to:
+    scale:  https://ffmpeg.org/ffmpeg-filters.html#scale-1
+     crop:  https://ffmpeg.org/ffmpeg-filters.html#crop
+   setsar:  https://ffmpeg.org/ffmpeg-filters.html#setdar_002c-setsar
+       eq:  https://ffmpeg.org/ffmpeg-filters.html#eq
+
+HELP_FILTER
+}
+
+function filter_help {
+  filters_help;
+}
+
+function video_config {
+tee -a 'fixvid.conf' << 'EOVIDEO' >/dev/null
+
+########################################################################
+#                                                                      #
+#                       Video component settings                       #
+#                                                                      #
+########################################################################
+
+#  Which stream to us as the video source
+video_stream_1=0;
+
+#  An extra label for the video extract file to separate one extraction
+#+ from the rest. Resolution is a common choice here.
+video_label_1="1080p";
+
+#  The codec to use in the final product, HEVC or H264 for me
+video_codec_1='HEVC';
+
+#  The extra parameters to pass to the video encoder
+#+ This parameter is expected to exist
+
+#  HEVC (nVidia) uses these, with adjustments as needed
+video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main -tier high';
+#+ video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main10 -tier high';
+#+ Add -pix_fmt to drop from 10-bit to 8-bit
+#= video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level 5.1 -profile:v main -tier high -pix_fmt yuv420p';
+
+#  H264 (nVidia) uses these, with adjustments as needed
+#= video_params_1="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 5.1 -profile:v high";
+#+ Add -pix_fmt to drop from 10-bit to 8-bit
+#= video_params_1="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 5.1 -profile:v high" -pix_fmt yuv420p';
+
+#  Equalizer adjustments to the video. Options include:
+#+     contrast, float: -2.0 to 2.0, default 1
+#+     brightness, float: -1.0 to 1.0, default 0
+#+     saturation, float: 0.0 to 3.0, default 1
+#+     gamma, float: 0.1 to 10.0, default 1
+#+     gamma_r, (red)float: 0.1 to 10.0, default 1
+#+     gamma_g, (green)float: 0.1 to 10.0, default 1
+#+     gamma_b, (blue)float: 0.1 to 10.0, default 1
+#+     gamma_weight, float: 0.0 to 1.0, default 1, (level of effect)
+#+ This paramater is optional, uncomment if needed
+#= video_equalizer_1='eq=contrast=1.12:brightness=0.18';
+
+#  Adjustments to the video's resolution, size, aspect ratio, etc., and
+#+ any other filtering needed. It can be simple, as passed to the -vf of
+#+ ffmpeg, or complex, as part of a complete fiter graph for ffmpeg's
+#+ -filter_complex. If the complex version is used the filter graph must
+#+ have, exactly one input pad, [VIN] and exactly one output pad [VOUT],
+#+ and the video_complex_1 must be set. For the simple versions there are
+#+ no input/output pads, and video_complex_1 must be commented out. There
+#+ should be no single quotes used in either version of the filter
+#+ This parameter is optional, uncomment if needed
+#= video_adjust_1='scale=1920x796,setsar=1/1';
+#= video_adjust_1='crop=1920:754,scale=1280x504,setsar=1/1';
+#= video_adjust_1='[VIN] scale=1920x796,setsar=1/1 [VOUT]';
+#= video_adjust_1='[VIN] crop=1920:754 [CROP];[CROP] scale=1280x504,setsar=1/1 [VOUT]';
+
+#  Whether or not to use the -filter_complex version in ffmpeg. 1 is use
+#+ complex filtering, 0, null, empty string, or undefined in use simple
+#+ filtering, as in -vf ....
+#+ This parameter is optional, uncomment if needed, see above
+#= video_complex_1=1;
+
+#  Whether or not to save a copy of this stream during the finalization
+#= video_save_1=1;
+
+#  A second, third, etc. group of settings can be used by repeating the
+#+ set of variables above, replacing the digit "1" with "2", and so on.
+#+ The program will look for each, in sequence, and stop on the first one
+#+ not found: group 3 will be ignored unless there is a group 2, etc.
+#= video_stream_2=0;
+#= video_label_2='1080p';
+#= video_codec_2='H264';
+#= video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high";
+#= Add -pix_fmt to drop from 10-bit to 8-bit
+#= video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high -pix_fmt yuv420p";
+#= video_equalizer_2='';
+#= video_adjust_2='';
+#= video_complex_2=1;
+#= video_save_2=1;
+
+EOVIDEO
+}

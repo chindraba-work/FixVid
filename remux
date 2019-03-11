@@ -1,0 +1,207 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  remux: build a new video from the extracted component files         #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Chindraba (Ronald Lamoreaux)                #
+#                          <fixvid@chindraba.work>                     #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+function add_stream {
+  local source_file;
+  [[ "$1" ]] && source_file="$1" || return 0;
+  local stream_prefix="${2:-video}";
+  shift;
+  shift;
+  local var="${stream_prefix}_default";
+  local extra_meta;
+  check ${!var} && \
+    extra_meta="-disposition:$stream_count -default" || {
+      extra_meta="-disposition:$stream_count +default";
+      declare -g $var=1;
+    }
+  while [[ "$1" ]]; do
+    extra_meta="${extra_meta} -disposition:$stream_count $1";
+    shift;
+  done
+  build_ffmpeg_input "$source_file";
+  source_list+=" $ffmpeg_input";
+  build_stream_meta $stream_count;
+  stream_meta+=" $extra_meta";
+  output_pad="${source_count}:0";
+  codec_part="-c:${stream_count} copy";
+  build_ffmpeg_stream;
+  map_list+=" $ffmpeg_stream";
+  (( source_count++ ));
+  (( stream_count++ ));
+  reset_ffmpeg_data;
+  return 0;
+}
+
+function set_sound {
+  launch $1 $2;
+  current_title="${saved_title}${3:+ $3}";
+  current_base="${saved_base}${4:+-$4}";
+  [[ 'audio_dts' == $1 ]] && {
+    check $current_include_dts && \
+      add_stream "$current_base.dts" 'audio';
+  } || {
+    check $current_include_ac3 && \
+      add_stream "$current_base.ac3" 'audio';
+    check $current_include_aa3 && \
+      add_stream "$current_base.aa3" 'audio';
+  }
+  return 0;
+}
+
+function audio_add_stream {
+  local temp_title="$current_title";
+  local stereo_suffix;
+  [[ 2 = $current_channels ]] && \
+    stereo_suffix="stereo" || \
+    stereo_suffix="downmix";
+  check $current_include_stereo && check $current_include_enhanced && \
+    set_sound audio_stereo \
+      $current_target "[Enhanced Stereo]" "$stereo_suffix-norm";
+  check $current_include_stereo && check $current_include_original && \
+    set_sound audio_stereo \
+      $current_target "[Stereo]" "$stereo_suffix";
+  [[ 2 = $current_channels ]] && {
+    check $current_include_channels && check $current_include_enhanced && \
+      set_sound audio_remix \
+        "$current_target" "[Enhance Surround Sound]" "norm";
+    check $current_include_channels && check $current_include_original && \
+      set_sound audio_copy_surround \
+        "$current_target" "[Enhance Surround Sound]";
+    check $current_include_dts && check $current_include_enhanced && \
+      set_sound audio_dts \
+        "$current_target" '[DTS Enhanced]' 'norm';
+    check $current_include_dts && check $current_include_original && \
+      set_sound audio_dts \
+        "$current_target" '[DTS]';
+  }
+  current_title="$temp_title";
+  return 0;
+}
+
+function titles_add_stream {
+  check $current_include || return 0;
+  launch titles_extract $current_target;
+  case ${current_type,,} in
+    text|subrip|srt|ass|aas  )
+      titles_ext='ass';
+      ;;
+    dvd_sub*|vobsub )
+      titles_ext='mkv';
+      ;;
+    * )
+      return 0
+      ;;
+  esac
+  add_stream "${current_base}.${titles_ext}" 'titles' "${current_SDH:++hearing_impaired}"
+  return 0;
+}
+
+function video_remux {
+  declare -g titles_default=0;
+  declare -g audio_default=0;
+  declare -g source_list=;
+  declare -g map_list=;
+  declare -g source_count=0;
+  declare -g stream_count=0;
+  add_stream "${current_base}.mkv" 'video';
+  current_base="${work_files}-${current_label}-${current_codec}-full";
+  local saved_base="$current_base";
+  [[ ! -s "${current_base}.mkv" ]] || \
+  check $force_run || \
+    return 0;
+  process_group audio_add_stream 0;
+  process_group titles_add_stream 0;
+  launch video_extract $current_target;
+  [[ "$chapter_source" ]] && [[ -s "$chapter_source" ]] && {
+    build_ffmpeg_input "$chapter_source";
+    source_list+=" $ffmpeg_input";
+    build_meta_filter $source_count
+    (( source_count++ ));
+  } || \
+    build_meta_filter;
+  input_list="$source_list";
+  stream_list="$map_list";
+  build_file_meta;
+  build_ffmpeg_output;
+  build_ffmpeg_command;
+  shared_launch "Full video ${current_title} ${current_label} ${current_codec}" $force_block \
+   bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
+  return 0;
+}
+
+
+usage['[r] remux']='[<target_num>] Collect the created components into a new video file';
+function remux_help {
+  cat <<HELP_REMUX
+
+    remux [<target_num> [<force>]]
+        Create video files from the files and streams identified in the
+        fixvid.conf file. Will call the appropriate commands to build
+        any of the missing streams. Can be used as a one-shot command to
+        completely run through all the needed commands to create each of
+        the streams identified in the fixvid.conf file as being included
+        in the final video file. If used as a one-shot, it is possible
+        that some of the streams which the config file directs to be
+        made, but not included in the final file, will not be created.
+        This command will only require the commands to create the
+        versions of the streams which are flagged as being included. The
+        command may create other streams as part of the process, but
+        there is no certainty that all the streams flagged to be 'made'
+        will be created.  Multiple streams can be created. For more
+        information on multiple streams, see: $1 help target_num.
+
+HELP_REMUX
+}
+
+usage['[g] one_shot']='An alias for the remux command which processes all the video groups';
+function one_shot_help {
+  cat <<HELP_ONE_SHOT
+
+  one_shot [- [<force>]]
+        Create all video files from the files and streams identified in
+        the fixvid.conf file. Will call the appropriate commands to
+        build any of the missing streams. Will completely run through
+        all the needed commands to create each of the streams
+        identified in the fixvid.conf file as being included in the
+        final video file(s). It is possible that some of the streams
+        which the config file directs to be made, but not included in
+        the final file(s), will not be created. This command will only
+        require the commands to create the versions of the streams which
+        are flagged as being included. The command may create other
+        streams as part of the process, but there is no certainty that
+        all the streams flagged to be 'made' will be created.  For more
+        information on multiple streams, see: $1 help target_num.
+
+HELP_ONE_SHOT
+}
