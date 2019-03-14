@@ -207,7 +207,7 @@ function shared_launch {
   shift;
   local block=$1;
   shift;
-  check $block && check $max_parallel || {
+  ! check $block || check $max_parallel || {
     echo "$ident is pending full access";
     wait;
   }
