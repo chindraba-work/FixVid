@@ -72,8 +72,8 @@ function set_sound {
   } || {
     check $current_include_ac3 && \
       add_stream "$current_base.ac3" 'audio';
-    check $current_include_aa3 && \
-      add_stream "$current_base.aa3" 'audio';
+    check $current_include_aac && \
+      add_stream "$current_base.aac" 'audio';
   }
   return 0;
 }
