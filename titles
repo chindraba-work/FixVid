@@ -31,6 +31,24 @@
 #                                                                      #
 ########################################################################
 
+function titles_add_stream {
+  check $current_include || return 0;
+  launch titles_extract $current_target;
+  case ${current_type,,} in
+    text|subrip|srt|ass|aas  )
+      titles_ext='ass';
+      ;;
+    dvd_sub*|vobsub )
+      titles_ext='mkv';
+      ;;
+    * )
+      return 0
+      ;;
+  esac
+  ffpeg_add_stream "${current_base}.${titles_ext}" 'titles' "${current_SDH:++hearing_impaired}"
+  return 0;
+}
+
 function titles_build {
   local titles_codec="${1:-copy}";
   local titles_ext="${2:-mkv}";
@@ -62,24 +80,38 @@ function titles_extract {
   return 0;
 }
 
+function titles_finalize {
+  check $current_save || return 0;
+  local title_ext;
+  case ${current_type,,} in
+    text|subrip|srt|ass|aas  )
+      title_ext="ass";
+      ;;
+    dvd_sub*|vobsub )
+      title_ext="mkv";
+      ;;
+    file )
+      title_ext="${current_source##*.}";
+      ;;
+    * )
+      return 0
+      ;;
+  esac
+  local title_src="${work_files}-titles-${current_label}.${title_ext}";
+  local title_dest="${dest_base}";
+  check $current_SDH && title_dest+="-HI";
+  title_dest+=".${title_ext}";
+  [[ -s "${title_src}" ]] && \
+    link "${title_src}" "${dest_base}/${title_dest}" 2>/dev/null;
+  return 0;
+}
+
 titles_key='stream';
 titles_fields="source stream label lang title type include SDH \
 file save";
 
 # ffmpeg for ignoring all but the chosen type of stream
 subtitles_only="-vn -an -dn";
-
-usage['[t] titles']='[<target_num>] Extract/process the subtitle stream(s)';
-function titles_help {
-  cat <<HELP_SUBTITLES
-
-    titles [<target_num> [<force>]]
-        Create subtitle files from the files and streams identified in
-        the fixvid.conf file. Multiple streams can be created. For more
-        information on multiple streams, see: $1 help target_num.
-
-HELP_SUBTITLES
-}
 
 function titles_config {
 tee -a 'fixvid.conf' << 'EOtitles' >/dev/null
@@ -116,8 +148,10 @@ titles_lang_1='eng';
 #  The title of the subtitles, as shown by most media players when the
 #+ user selects subtitles from the menu
 titles_title_1='Standard subtitles';
-#  What type of subtitles the souce file contains. Text is for SRT, AAS,
-#+ and ASS.
+#  What type of subtitles the souce file contains. 'text' is for SRT,
+#+ AAS, and ASS. 'dvd_subtitle' or 'vobsub' are for DVD subtitles.
+#+ 'file' is for a file that is not processed before being included or
+#+ saved.
 titles_type_1='dvd_subtitle';
 #  Are these subtitles to be included in the final product video?
 #+ Leave commented to prevent them from being included.

@@ -33,98 +33,70 @@
 #                                                                      #
 ########################################################################
 
-function load_audio_settings {
-  # To include either the original or the enhanced streams, there must
-  # be at least one layout included. DTS, other surround sound, or
-  # stereo. Stereo can be made from any source, so that is default
-  check  $current_include_original || \
-  check $current_include_enhanced && \
-  ! check  $current_include_dts && \
-  ! check  $current_include_channels && \
-    declare -g current_include_stereo=1;
+function audio_add_stream {
+  local temp_title="$current_title";
+  local stereo_suffix;
+  [[ 2 = $current_channels ]] && \
+    stereo_suffix="stereo" || \
+    stereo_suffix="downmix";
+  check $current_include_stereo && check $current_include_enhanced && \
+    audio_set_stream audio_stereo "$current_target" \
+      "[Enhanced Stereo]" "$stereo_suffix-norm";
+  check $current_include_stereo && check $current_include_original && \
+    audio_set_stream audio_stereo "$current_target" \
+      "[Stereo]" "$stereo_suffix";
+  [[ 2 = $current_channels ]] && return 0;
+  check $current_include_channels && check $current_include_enhanced && \
+    audio_set_stream audio_remix "$current_target" \
+      "[Enhanced Surround Sound]" "norm";
+  check $current_include_channels && check $current_include_original && \
+    audio_set_stream audio_copy_surround "$current_target" \
+      "[Surround Sound]";
+  check $current_include_dts && check $current_include_enhanced && \
+    audio_set_stream audio_dts "$current_target" \
+      "[DTS Enhanced]" "norm";
+  check $current_include_dts && check $current_include_original && \
+    audio_set_stream audio_dts "$current_target" \
+      "[DTS]";
+  current_title="$temp_title";
+  return 0;
+}
 
-  # To include stereo or non-DTS surround sound, there must be at
-  # at least one codec included as well. Defaults to AC3
-  check $current_include_stereo || \
-  check $current_include_channels && \
-  ! check $current_include_aac && \
-    declare -g current_include_ac3=1;
-
-  # To include any version of the sound, there must be some version of
-  # the audio volume included, either original or enhanced
-  check $current_include_dts || \
-  check $current_include_stereo || \
-  check $current_include_channels && \
-  check $current_include_original || \
-    declare -g current_include_enhanced=1;
-
-  # To include any format of audio it must be made first
-  for audio_format in $audio_formats; do
-    include_var="current_include_${audio_format}";
-    check ${!include_var} && declare -g current_make_${audio_format}=1;
+function audio_channels {
+  [[ 2 = $current_channels ]] && return 0;
+  check $current_make_enhanced && check $current_make_channels || \
+    check $force_run || return 0;
+  local file_missing=0;
+  local channel;
+  for channel in $current_layout; do
+    [[ -s "${current_base}-channel-${channel,,}.wav" ]] || \
+      file_missing=1;
   done
-
-  # To make a DTS stream, we need a copy of the channel stream first
-  check $current_make_dts && declare -g current_make_channels=1;
-
-  # To make stereo or non-DTS surround sound, there must be at
-  # at least one codec made as well. Defaults to AC3
-  check $current_make_stereo || \
-  check $current_make_channels && \
-  ! check $current_make_aac && \
-    declare -g current_make_ac3=1;
-
-  # To include any volume version of audio it must be made first
-  for audio_volume in $audio_volumes; do
-    include_var="current_include_${audio_volume}";
-    check ${!include_var} && declare -g current_make_${audio_volume}=1;
+  check $file_missing || check $force_run || return 0;
+  rm -f "${current_base}-channel-adj-*wav";
+  unset stream_list;
+  unset output_pad;
+  local  pad_list=;
+  for channel in $current_layout; do
+    output_pad="[${channel^^}]";
+    pad_list+="${output_pad}";
+    current_title="${saved_title} Audio ${output_pad} Channel";
+    build_stream_meta;
+    build_file_meta;
+    build_ffmpeg_output 'wav' "$audio_only" "channel-${channel,,}";
+    codec_part="-c:a $wav_encode -b:a $wav_mono_bitrate";
+    build_ffmpeg_stream;
+    stream_list+=" $ffmpeg_stream";
+    unset ffmpeg_stream;
+    current_title="${saved_title}";
   done
-
-  # Every codec that is included has to be made first
-  for codec in $full_audio_codec_list channels custom dts stereo enhanced original; do
-    var="current_include_${codec}";
-    check ${!var} && declare -g current_make_${codec}=1;
-  done
-
-  # Check for, and set, the dynamic filter settings for the channels
-  declare -g current_dyna_stereo="${current_dyna_stereo:-$dyna_stereo}";
-  declare -g current_dyna_origin="${current_dyna_origin:-$dyna_origin}";
-  declare -g current_dyna_center="${current_dyna_center:-$dyna_center}";
-  declare -g current_dyna_extras="${current_dyna_extras:-$dyna_extras}";
-  declare -g current_dyna_others="${current_dyna_others:-$dyna_others}";
-
-  # Check for, and set default surround sound channel mapping values
-  case $current_channels in
-    2 ) # Stereo is not surround sound
-      ;;
-    7.1 )
-      current_mapping="${current_mapping:-$audio_mapping_71}"
-      current_layout="${current_layout:-$audio_layout_71}"
-      current_mixing="${current_mixing:-$audio_mixing_71}"
-      ;;
-    5.1 )
-      current_mapping="${current_mapping:-$audio_mapping_51}"
-      current_layout="${current_layout:-$audiot_layout_51}"
-      current_mixing="${current_mixing:-$audio_mixing_51}"
-      ;;
-    '5.1(side)' )
-      current_mapping="${current_mapping:-$audio_mapping_51_side}"
-      current_layout="${current_layout:-$audio_layout_51_side}"
-      current_mixing="${current_mixing:-$audio_mixing_51_side}"
-      ;;
-    * )
-      ;;
-  esac
-
-  # Check for, and set, the settings for audio codecs used
-  aac_encode="${aac_codec_params:-$aac_params}";
-  aac_stereo_bitrate="${aac_stereo_bitrate:-$aac_stereo_bits}";
-  aac_channel_bitrate="${aac_channel_bitrate:-$aac_channel_bits}";
-  ac3_encode="${ac3_codec_params:-$ac3_params}";
-  ac3_stereo_bitrate="${ac3_stereo_bitrate:-$ac3_stereo_bits}";
-  ac3_channel_bitrate="${ac3_channel_bitrate:-$ac3_channel_bits}";
-  wav_encode="${wav_codec_params:-$wav_params}";
-  wav_mono_bitrate="${wav_mono_bitrate:-$wav_mono_bits}";
+  build_ffmpeg_preamble "${current_base}-Channels.wav";
+  filter_graph="-filter_complex '[0:$current_stream] \
+    channelsplit=channel_layout=$current_channels $pad_list'";
+  build_ffmpeg_command;
+  shared_launch "${current_title} Channels" \
+    "${current_label}_split" bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
   return 0;
 }
 
@@ -185,103 +157,24 @@ function audio_dts_stream {
   }
 }
 
-function audio_channels {
+function audio_finalize {
+  local stereo_suffix;
+  [[ 2 = $current_channels ]] && \
+    stereo_suffix="stereo" || \
+    stereo_suffix="downmix";
+  check $current_save_stereo && check $current_save_enhanced && \
+    audio_save_stream "Enhanced_Stereo" "$stereo_suffix-norm";
+  check $current_save_stereo && check $current_save_original && \
+    audio_save_stream "Stereo" "$stereo_suffix";
   [[ 2 = $current_channels ]] && return 0;
-  check $current_make_enhanced && check $current_make_channels || \
-    check $force_run || return 0;
-  local file_missing=0;
-  local channel;
-  for channel in $current_layout; do
-    [[ -s "${current_base}-channel-${channel,,}.wav" ]] || \
-      file_missing=1;
-  done
-  check $file_missing || check $force_run || return 0;
-  rm -f "${current_base}-channel-adj-*wav";
-  unset stream_list;
-  unset output_pad;
-  local  pad_list=;
-  for channel in $current_layout; do
-    output_pad="[${channel^^}]";
-    pad_list+="${output_pad}";
-    current_title="${saved_title} Audio ${output_pad} Channel";
-    build_stream_meta;
-    build_file_meta;
-    build_ffmpeg_output 'wav' "$audio_only" "channel-${channel,,}";
-    codec_part="-c:a $wav_encode -b:a $wav_mono_bitrate";
-    build_ffmpeg_stream;
-    stream_list+=" $ffmpeg_stream";
-    unset ffmpeg_stream;
-    current_title="${saved_title}";
-  done
-  build_ffmpeg_preamble "${current_base}-Channels.wav";
-  filter_graph="-filter_complex '[0:$current_stream] \
-    channelsplit=channel_layout=$current_channels $pad_list'";
-  build_ffmpeg_command;
-  shared_launch "${current_title} Channels" \
-    "${current_label}_split" bash -c "$ffmpeg_command";
-  reset_ffmpeg_data;
-  return 0;
-}
-
-function audio_stereo {
-  check $current_make_stereo || check $force_run || return 0;
-  local  output_pad_enhanced;
-  local  output_pad_original;
-  local  filter_enhanced;
-  local  filter_original;
-  [[ 2 = "$current_channels" ]] && {
-    current_base+='-stereo';
-    filter_enhanced="-af '${current_dyna_stereo}'";
-    filter_original=;
-  } || {
-    current_base+='-downmix';
-    filter_enhanced="-filter_complex '[0:${current_stream}] ${current_mixing} [STEREO];[STEREO] ${current_dyna_stereo} [NORM]'";
-    output_pad_enhanced="[NORM]";
-    filter_original="-filter_complex '[0:${current_stream}] ${current_mixing} [STEREO]'";
-    output_pad_original="[STEREO]";
-  }
-  local audio_volume;
-  local codec_name;
-  for audio_volume in $audio_volumes; do
-    for codec_name in $audio_codec_list; do
-      audio_stereo_stream "$codec_name" "$audio_volume";
-    done
-  done
-  unset output_pad_enhanced;
-  unset output_pad_original;
-  unset filter_enhanced;
-  unset filter_original;
-  return 0;
-}
-
-function audio_stereo_stream {
-  local active_codec="${1:-ac3}";
-  local active_level="${2:-original}";
-  local codec_check="current_make_$active_codec"
-  local level_check="current_make_${active_level}";
-  local filter_var="filter_${active_level}";
-  filter_graph="${!filter_var}"
-  local pad_var="output_pad_${active_level}";
-  output_pad="${!pad_var}";
-  bitrate_var="${active_codec}_stereo_bitrate";
-  declare -g ${active_codec}_bitrate="${!bitrate_var}";
-  local base_suffix;
-  local title_suffix;
-  [[ 'enhanced' == $active_level ]] && {
-    base_suffix='norm';
-    title_suffix="[Enhanced Stereo]";
-  } || {
-    base_suffix=;
-    title_suffix="[Stereo]";
-  }
-  check ${!codec_check} && check ${!level_check} && \
-  [[ ! -s "${current_base}${base_suffix:+-$base_suffix}.${active_codec}" ]] || \
-  check $force_run && {
-    build_ffmpeg_audio_encode "$active_codec" "$title_suffix" "$base_suffix";
-    shared_launch "${current_title} $title_suffix ${active_codec^^}" \
-      "${current_label}_stereo${base_suffix:+_$base_suffix}_${active_codec}" bash -c "$ffmpeg_command";
-    reset_ffmpeg_data;
-  }
+  check $current_save_channels && check $current_save_enhanced && \
+    audio_save_stream "Enhanced_Surround_Sound" "norm";
+  check $current_save_channels && check $current_save_original && \
+    audio_save_stream "Surround_Sound";
+  check $current_save_dts && check $current_save_enhanced && \
+    audio_save_stream "DTS_Enhanced" "norm";
+  check $current_save_dts && check $current_save_original && \
+    audio_save_stream "DTS";
   return 0;
 }
 
@@ -396,6 +289,222 @@ function audio_remix {
   return 0;
 }
 
+function audio_save_stream {
+  local current_dest="${dest_base}${1:+-$1}";
+  local current_base="${saved_base}${2:+-$2}";
+  [[ $1 =~ DTS ]] && {
+    check $current_save_dts && [[ -s "${current_base}.dts" ]] && \
+      link "$current_base.dts" "${dest_base}/${current_dest}.dts" 2>/dev/null;
+  } || {
+    check $current_save_ac3 && [[ -s "${current_base}.ac3" ]] && \
+      link "$current_base.ac3" "${dest_base}/${current_dest}.ac3" 2>/dev/null;
+    check $current_save_aac && [[ -s "${current_base}.aac" ]] && \
+      link "$current_base.aac" "${dest_base}/${current_dest}.aac" 2>/dev/null;
+  }
+  return 0;
+}
+
+function audio_set_stream {
+  launch $1 $2;
+  current_title="${saved_title}${3:+ $3}";
+  current_base="${saved_base}${4:+-$4}";
+  [[ 'audio_dts' == $1 ]] && {
+    check $current_include_dts && \
+      ffpeg_add_stream "$current_base.dts" 'audio';
+  } || {
+    check $current_include_ac3 && \
+      ffpeg_add_stream "$current_base.ac3" 'audio';
+    check $current_include_aac && \
+      ffpeg_add_stream "$current_base.aac" 'audio';
+  }
+  return 0;
+}
+
+function audio_stereo {
+  check $current_make_stereo || check $force_run || return 0;
+  local  output_pad_enhanced;
+  local  output_pad_original;
+  local  filter_enhanced;
+  local  filter_original;
+  [[ 2 = "$current_channels" ]] && {
+    current_base+='-stereo';
+    filter_enhanced="-af '${current_dyna_stereo}'";
+    filter_original=;
+  } || {
+    current_base+='-downmix';
+    filter_enhanced="-filter_complex '[0:${current_stream}] ${current_mixing} [STEREO];[STEREO] ${current_dyna_stereo} [NORM]'";
+    output_pad_enhanced="[NORM]";
+    filter_original="-filter_complex '[0:${current_stream}] ${current_mixing} [STEREO]'";
+    output_pad_original="[STEREO]";
+  }
+  local audio_volume;
+  local codec_name;
+  for audio_volume in $audio_volumes; do
+    for codec_name in $audio_codec_list; do
+      audio_stereo_stream "$codec_name" "$audio_volume";
+    done
+  done
+  unset output_pad_enhanced;
+  unset output_pad_original;
+  unset filter_enhanced;
+  unset filter_original;
+  return 0;
+}
+
+function audio_stereo_stream {
+  local active_codec="${1:-ac3}";
+  local active_level="${2:-original}";
+  local codec_check="current_make_$active_codec"
+  local level_check="current_make_${active_level}";
+  local filter_var="filter_${active_level}";
+  filter_graph="${!filter_var}"
+  local pad_var="output_pad_${active_level}";
+  output_pad="${!pad_var}";
+  bitrate_var="${active_codec}_stereo_bitrate";
+  declare -g ${active_codec}_bitrate="${!bitrate_var}";
+  local base_suffix;
+  local title_suffix;
+  [[ 'enhanced' == $active_level ]] && {
+    base_suffix='norm';
+    title_suffix="[Enhanced Stereo]";
+  } || {
+    base_suffix=;
+    title_suffix="[Stereo]";
+  }
+  check ${!codec_check} && check ${!level_check} && \
+  [[ ! -s "${current_base}${base_suffix:+-$base_suffix}.${active_codec}" ]] || \
+  check $force_run && {
+    build_ffmpeg_audio_encode "$active_codec" "$title_suffix" "$base_suffix";
+    shared_launch "${current_title} $title_suffix ${active_codec^^}" \
+      "${current_label}_stereo${base_suffix:+_$base_suffix}_${active_codec}" bash -c "$ffmpeg_command";
+    reset_ffmpeg_data;
+  }
+  return 0;
+}
+
+function load_audio_settings {
+  # To include either the original or the enhanced streams, there must
+  # be at least one layout included. DTS, other surround sound, or
+  # stereo. Stereo can be made from any source, so that is default
+  check  $current_include_original || \
+  check $current_include_enhanced && \
+  ! check  $current_include_dts && \
+  ! check  $current_include_channels && \
+    declare -g current_include_stereo=1;
+
+  # To save either the original or the enhanced streams, there must
+  # be at least one layout saved. DTS, other surround sound, or
+  # stereo. Stereo can be made from any source, so that is default
+  check  $current_save_original || \
+  check $current_save_enhanced && \
+  ! check  $current_save_dts && \
+  ! check  $current_save_channels && \
+    declare -g current_save_stereo=1;
+
+  # To include stereo or non-DTS surround sound, there must be at
+  # at least one codec included as well. Defaults to AC3
+  check $current_include_stereo || \
+  check $current_include_channels && \
+  ! check $current_include_aac && \
+    declare -g current_include_ac3=1;
+
+  # To save stereo or non-DTS surround sound, there must be at
+  # at least one codec saved as well. Defaults to AC3
+  check $current_save_stereo || \
+  check $current_save_channels && \
+  ! check $current_save_aac && \
+    declare -g current_save_ac3=1;
+
+  # To include any version of the sound, there must be some version of
+  # the audio volume included, either original or enhanced
+  check $current_include_dts || \
+  check $current_include_stereo || \
+  check $current_include_channels && \
+  check $current_include_original || \
+    declare -g current_include_enhanced=1;
+
+  # To save any version of the sound, there must be some version of
+  # the audio volume saved, either original or enhanced
+  check $current_save_dts || \
+  check $current_save_stereo || \
+  check $current_save_channels && \
+  check $current_save_original || \
+    declare -g current_save_enhanced=1;
+
+  # To include any format of audio it must be made first
+  for audio_format in $audio_formats; do
+    include_var="current_include_${audio_format}";
+    check ${!include_var} && declare -g current_make_${audio_format}=1;
+  done
+
+  # To make a DTS stream, we need a copy of the channel stream first
+  check $current_make_dts && declare -g current_make_channels=1;
+
+  # To make stereo or non-DTS surround sound, there must be at
+  # at least one codec made as well. Defaults to AC3
+  check $current_make_stereo || \
+  check $current_make_channels && \
+  ! check $current_make_aac && \
+    declare -g current_make_ac3=1;
+
+  # To include or save any volume version of audio it must be made first
+  for audio_volume in $audio_volumes; do
+    include_var="current_include_${audio_volume}";
+    save_var="current_save_${audio_volume}";
+    check ${!include_var} || check ${!save_var} && \
+      declare -g current_make_${audio_volume}=1;
+  done
+
+  # Every codec that is included or saved has to be made first
+  for codec in $full_audio_codec_list channels custom dts stereo enhanced original; do
+    include_var="current_include_${codec}";
+    save_var="current_save_${codec}";
+    check ${!include_var} || check ${!save_var} && \
+      declare -g current_make_${codec}=1;
+  done
+
+  # Check for, and set, the dynamic filter settings for the channels
+  declare -g current_dyna_stereo="${current_dyna_stereo:-$dyna_stereo}";
+  declare -g current_dyna_origin="${current_dyna_origin:-$dyna_origin}";
+  declare -g current_dyna_center="${current_dyna_center:-$dyna_center}";
+  declare -g current_dyna_extras="${current_dyna_extras:-$dyna_extras}";
+  declare -g current_dyna_others="${current_dyna_others:-$dyna_others}";
+
+  # Check for, and set default surround sound channel mapping values
+  case $current_channels in
+    2 ) # Stereo is not surround sound
+      ;;
+    7.1 )
+      current_mapping="${current_mapping:-$audio_mapping_71}"
+      current_layout="${current_layout:-$audio_layout_71}"
+      current_mixing="${current_mixing:-$audio_mixing_71}"
+      ;;
+    5.1 )
+      current_mapping="${current_mapping:-$audio_mapping_51}"
+      current_layout="${current_layout:-$audiot_layout_51}"
+      current_mixing="${current_mixing:-$audio_mixing_51}"
+      ;;
+    '5.1(side)' )
+      current_mapping="${current_mapping:-$audio_mapping_51_side}"
+      current_layout="${current_layout:-$audio_layout_51_side}"
+      current_mixing="${current_mixing:-$audio_mixing_51_side}"
+      ;;
+    * )
+      ;;
+  esac
+
+  # Check for, and set, the settings for audio codecs used
+  aac_encode="${aac_codec_params:-$aac_params}";
+  aac_stereo_bitrate="${aac_stereo_bitrate:-$aac_stereo_bits}";
+  aac_channel_bitrate="${aac_channel_bitrate:-$aac_channel_bits}";
+  ac3_encode="${ac3_codec_params:-$ac3_params}";
+  ac3_stereo_bitrate="${ac3_stereo_bitrate:-$ac3_stereo_bits}";
+  ac3_channel_bitrate="${ac3_channel_bitrate:-$ac3_channel_bits}";
+  wav_encode="${wav_codec_params:-$wav_params}";
+  wav_mono_bitrate="${wav_mono_bitrate:-$wav_mono_bits}";
+  return 0;
+}
+
 audio_codec_list='aac ac3';
 full_audio_codec_list="${audio_codec_list} dts";
 audio_formats='stereo channels dts';
@@ -442,130 +551,6 @@ dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
 dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
 # Not used but always available. For future use in new audio commands
 dyna_others='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
-
-usage['    all_sound']='Create all versions of all the audio stream(s)';
-function all_sound_help {
-  cat <<HELP_ALL_SOUND
-
-    all_sound [- [<force>]]
-        A one-shot command which combines the remix, stereo and dts
-        commands into a single command and processes all streams.
-
-HELP_ALL_SOUND
-}
-
-usage['[a] audio']='[<target_num>] Create all versions of the audio stream(s)';
-function audio_help {
-  cat <<HELP_AUDIO
-
-    audio [<target_num> [<force>]]
-    a [<target_num> [<force>]]
-        A one-shot command which combines the remix, stereo and dts
-        commands into a single command. Multiple streams can be created.
-        For more information on multiple streams, see: $1 help target_num.
-
-HELP_AUDIO
-}
-
-usage['[d] dts']='[<target_num>] Create DTS encoded audio stream(s)';
-function dts_help {
-  cat <<HELP_DTS
-
-    dts [<target_num> [<force>]]
-        Create DTS formatted surround sound files from the previously
-        created AC3 files from the remix command. Will call the remix
-        command if the needed input files are missing. Multiple streams
-        can be created. For more information on multiple streams, see:
-        $1 help target_num.
-
-HELP_DTS
-}
-
-usage['[c] channels']='[<target_num>] Low-level command to extract surround sound channels';
-function channels_help {
-  cat <<HELP_EXPLODE
-
-    channels [<target_num> [<force>]]
-        Create a separate WAV file for each channel of a surround sound
-        stream. Multiple streams can be created. For more information on
-        multiple streams, see: $1 help target_num.
-
-HELP_EXPLODE
-}
-
-usage['[n] normalize']='[<target_num>] Low-level command to normalize surround sound channels';
-function normalize_help {
-  cat <<HELP_NORMALIZE
-
-    normalize [<target_num> [<force>]]
-        Create normalized versions of each of the separate channels
-        made by the explode command. Will call the explode command if
-        any of the original files are missing. Multiple streams can be
-        created. For more information on multiple streams, see:
-        $1 help target_num.
-
-HELP_NORMALIZE
-}
-
-usage['[m] remix']='[<target_num>] Create surround sound audio stream(s)';
-function remix_help {
-  cat <<HELP_REMIX
-
-    remix [<target_num> [<force>]]
-        Extract surround sound streams and save an un-modified version
-        in an external file. Split the channels, normalize each one, and
-        recombine the individual channel files into a single surround
-        sound stream. Calls the normalize command to create any of the
-        missing source files. Multiple streams can be created. For more
-        information on multiple streams, see: $1 help target_num.
-
-HELP_REMIX
-}
-
-usage['[s] stereo']='[<target_num>] Create stereo audio stream(s)';
-function stereo_help {
-  cat <<HELP_STEREO
-
-    stereo [<target_num> [<force>]]
-        Extract the stereo sound track from the file and stream
-        identified in the fixvid.conf file as the stereo source. Applies
-        the enhancements to the stereo sound track and creates an AAC
-        and/or an AC3 file of the original and/or the enhanced tracks.
-        Multiple streams can be created. For more information on
-        multiple streams, see: $1 help target_num.
-
-HELP_STEREO
-}
-
-function dynaudnorm_help {
-  cat <<DYNAUDNORM
-
-dynaudnorm is the dynamic audio normalization filter in FFMPEG. It has
-the following parameters, among others, available
-
-   f:  frame-size(ms)[10-8000,500]: size of each frame for gain
-       calculations
-   g:  Gaussian filter window size(frames)[3-301(odd),31]: the "window"
-       over which gain is normalized
-   p:  peak target(%of FS)[.01-.99,.95]: the target max volume of
-       normalization.
-   m:  max-gain[1-100,10]: globally applied limit to gain applied to any
-       segment.
-   r:  RMS[0.0(disabled)-1.0]: Use RMS calculations, rather than "peak"
-       for gain factors
-   s:  compression factor[0.0(disabled)-30.0]: lower is more dynamic
-       compression, 3 seems a hard no-distortion floor.
-
-   The parameters are given in a colon ':' separated list of key=value
-   pairs. A global maximum gain of 25 with a target peak of 85% of full
-   scale using a window of 43 frames of 750ms each would be given as:
-       'dynaudnorm=m=25:p=.85:g=43:f=750'
-
-   Full documentation for dynaudnorm can be found on the FFMPEG website:
-        https://ffmpeg.org/ffmpeg-filters.html#dynaudnorm
-
-DYNAUDNORM
-}
 
 function audio_config {
 tee -a 'fixvid.conf' << 'EOAUDIO' >/dev/null
