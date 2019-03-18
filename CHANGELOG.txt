@@ -2,6 +2,13 @@ SmallSite
 
 Changelog
 
+v1.0.0
+
+    - Add functions for creating the exportable file set
+    - Rewrite the help and usage information for clarity
+    - Modify the operations, and some meanings, for the complex commands
+    - Remove the "force" option from complex commands
+
 v0.2.0
 
     - Add ability to show/hide FFMPEG running stats
