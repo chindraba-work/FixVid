@@ -1,0 +1,56 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  help: functions and text to display help and usage information      #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Chindraba (Ronald Lamoreaux)                #
+#                          <fixvid@chindraba.work>                     #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+#  The short help texts
+
+
+usage['[t] titles']='[<target_num>] Extract/process the [<target_num>] subtitle stream(s)';
+
+function subtitles_help {
+  titles_help;
+}
+
+function titles_help {
+  cat <<HELP_TITLES
+
+    t [<target_num> [<force>]]
+    titles [<target_num> [<force>]]
+    subtitles [<target_num> [<force>]]
+        Create subtitle files from the files and streams identified in
+        the fixvid.conf file. May process one subtitle group, or all
+        subtitle groups at once. For more information on multiple groups,
+        see: $1 help target.
+
+HELP_TITLES
+}
+
