@@ -33,8 +33,114 @@
 
 #  The short help texts
 
-
+usage['[a] audio']='[<target_num>] Create all selected versions of the [<target_num>] audio stream(s)';
+usage['    channels']='[<target_num>] Low-level command to extract the [<target_num>] surround sound channels';
+usage['[d] dts']='[<target_num>] Create the DTS encoded [<target_num>] audio stream(s)';
+usage['[m] mix | remix']='[<target_num>] Create the [<target_num>] surround sound audio stream(s)';
+usage['    normalize']='[<target_num>] Low-level command to normalize the [<target_num>] surround sound channels';
+usage['[s] stereo']='[<target_num>] Create the [<target_num>] stereo audio stream(s)';
 usage['[t] titles']='[<target_num>] Extract/process the [<target_num>] subtitle stream(s)';
+
+function audio_help {
+  cat <<HELP_AUDIO
+
+    a [<target_num>]
+    audio [<target_num>]
+        A one-shot command to create all the audio files associated with
+        the <target_num> audio group. Combines the commands "stereo
+        [<target_num>]", "remix [<target_num>]", and "dts [<target_num>]"
+        into a single command. In all cases the <force> parameter is
+        ignored. May process one audio group, or all audio groups at
+        once. For more information on multiple groups, see: $1 help
+        target.
+
+HELP_AUDIO
+}
+
+function channels_help {
+  cat <<HELP_EXPLODE
+
+    channels [<target_num> [<force>]]
+        Create a separate WAV file for each channel of a surround sound
+        stream. This is a low-level command and is normally called as
+        needed by the "remix [<target_num>]" command. May process one
+        audio group, or all audio groups at once. For more information
+        on multiple groups, see: $1 help target.
+
+HELP_EXPLODE
+}
+
+function dts_help {
+  cat <<HELP_DTS
+
+    dts [<target_num> [<force>]]
+        Create DTS formatted surround sound files from the AC3 or AAC
+        files previously created by the "remix" command. Will call the
+        "remix [<target_num> [<force>]]" command if the needed input
+        files are missing.  May process one audio group, or all audio
+        groups at once. For more information on multiple groups, see:
+        $1 help target.
+
+HELP_DTS
+}
+
+function mix_help {
+  remix_help $1;
+}
+
+function normalize_help {
+  cat <<HELP_NORMALIZE
+
+    normalize [<target_num> [<force>]]
+        Create normalized versions of each of the separate channels made
+        by the channels command. Will call the explode command if any of
+        the original files are missing. Will only make normalized
+        versions for channels which do not have one. May process one
+        audio group, or all audio groups at once. For more information
+        on multiple groups, see: $1 help target.
+
+HELP_NORMALIZE
+}
+
+function remix_help {
+  cat <<HELP_REMIX
+
+    m [<target_num> [<force>]]
+    mix [<target_num> [<force>]]
+    remix [<target_num> [<force>]]
+        Process the surround sound stream <target_num> according to the
+        settings and requirements in the fixvid.conf file. Any combinat
+        ion of the volume levels (original and normalized) and the
+        codecs (AC3 and AAC) are possible. Any combination that is
+        marked as "_include_", "_save_", or "_make_" will be created.
+        When the audio group indicated by <target_num> is given as a
+        2-channel source, "remix" will silently fail. If any normalized
+        versions are required, the original source will be split into
+        individual WAV files, normalized versions of each will also be
+        in WAV files, and the results will be remixed into a file, or
+        files, with the required codec(s). Will automatically call the
+        low-level commands to create the supporting files if needed.
+        Does not create the DTS encoded files, which are created by the
+        "dts [<target_num>]" command. May process one audio group, or
+        all audio groups at once. For more information on multiple
+        groups, see: $1 help target.
+
+HELP_REMIX
+}
+
+function stereo_help {
+  cat <<HELP_STEREO
+
+    stereo [<target_num> [<force>]]
+        Extract the stereo sound track from the file and stream
+        identified in the fixvid.conf file as the stereo source. Applies
+        the enhancements to the stereo sound track and creates an AAC
+        and/or an AC3 file of the original and/or the enhanced tracks.
+        May process one audio group, or all audio groups at once. For
+        more information on multiple groups, see: $1 help target.
+
+HELP_STEREO
+}
 
 function subtitles_help {
   titles_help;
@@ -52,5 +158,35 @@ function titles_help {
         see: $1 help target.
 
 HELP_TITLES
+}
+
+function dynaudnorm_help {
+  cat <<DYNAUDNORM
+
+dynaudnorm is the dynamic audio normalization filter in FFMPEG. It has
+the following parameters, among others, available
+
+   f:  frame-size(ms)[10-8000,500]: size of each frame for gain
+       calculations
+   g:  Gaussian filter window size(frames)[3-301(odd),31]: the "window"
+       over which gain is normalized
+   p:  peak target(%of FS)[.01-.99,.95]: the target max volume of
+       normalization.
+   m:  max-gain[1-100,10]: globally applied limit to gain applied to any
+       segment.
+   r:  RMS[0.0(disabled)-1.0]: Use RMS calculations, rather than "peak"
+       for gain factors
+   s:  compression factor[0.0(disabled)-30.0]: lower is more dynamic
+       compression, 3 seems a hard no-distortion floor.
+
+   The parameters are given in a colon ':' separated list of key=value
+   pairs. A global maximum gain of 25 with a target peak of 85% of full
+   scale using a window of 43 frames of 750ms each would be given as:
+       'dynaudnorm=m=25:p=.85:g=43:f=750'
+
+   Full documentation for dynaudnorm can be found on the FFMPEG website:
+        https://ffmpeg.org/ffmpeg-filters.html#dynaudnorm
+
+DYNAUDNORM
 }
 
