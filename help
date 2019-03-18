@@ -31,15 +31,78 @@
 #                                                                      #
 ########################################################################
 
+function help {
+  [[ $2 ]] && {
+    cmd_name="$2";
+    while [[ $cmd_name =~ ^- ]]; do
+    cmd_name=${cmd_name#-};
+    done
+    cmd_name="${cmd_name,,}";
+    help_cmd="${cmd_name}_help";
+    ( declare -Ff $help_cmd > /dev/null ) || {
+      echo "There is no advanced help availabe for $1 help $cmd_name.";
+      return 0;
+    }
+    $help_cmd $1;
+    see_also $1 $cmd_name;
+  } || {
+    help_main $1;
+  }
+}
+
+function help_main {
+  cat <<HELP_MAIN
+
+Usage: $1 <command> [arg [arg]]
+
+Processes files in the current directory, according to the information
+in the fixvid.conf file as steps in creating a new, remuxed, video file
+from the source file(s) in the directory.
+
+Available commands are:
+
+HELP_MAIN
+  mapfile -d '' commands < <(printf '%s\0' "${!usage[@]}" | sort -z);
+  for cmd in "${commands[@]}"; do
+    printf '  %-15s %s\n' "$cmd" "${usage[$cmd]}";
+  done
+  cat <<EXTRA_HELP
+
+Addtional topics available in help are:
+   target_num: How the <target_num> is validated and used
+   dynaudnorm: Common elements of the dynaudnorm audio filter
+   filters:    Links to FFMPEG documentation for common video filters
+   force:      (Re-)create streams, overwriting existing files
+
+Use $1 help <command|topic> for more information on each command or topic.
+
+EXTRA_HELP
+}
+
+function see_also {
+  echo "See also:"
+  local topic;
+  for topic in target_num dynaudnorm filters force; do
+    [[ $2 == $topic ]] ||
+      echo "    $1 help $topic";
+  done
+}
+
 #  The short help texts
 
 usage['[a] audio']='[<target_num>] Create all selected versions of the [<target_num>] audio stream(s)';
 usage['    channels']='[<target_num>] Low-level command to extract the [<target_num>] surround sound channels';
 usage['[d] dts']='[<target_num>] Create the DTS encoded [<target_num>] audio stream(s)';
+usage['[h] help']='[<command|topic>] Display general help, or help on the given command or topic';
+usage['[i] init']='Scan source candidates, create the fixvid.conf file';
 usage['[m] mix | remix']='[<target_num>] Create the [<target_num>] surround sound audio stream(s)';
 usage['    normalize']='[<target_num>] Low-level command to normalize the [<target_num>] surround sound channels';
+usage['[p] probe']='<file_name> Show filtered results for the streams in the file';
+usage['[r] remux']='[<target_num>] Collect the created components into a new file with [<target_num>] video stream(s)';
 usage['[s] stereo']='[<target_num>] Create the [<target_num>] stereo audio stream(s)';
 usage['[t] titles']='[<target_num>] Extract/process the [<target_num>] subtitle stream(s)';
+usage['    version']='Display the version number and exit';
+usage['[v] video']='[<target_num>] Create the bare [<target_num>] video stream(s)';
 
 function audio_help {
   cat <<HELP_AUDIO
@@ -84,6 +147,23 @@ function dts_help {
 HELP_DTS
 }
 
+function init_help {
+  cat <<HELP_INIT
+
+    init
+        Create the empty fixvid.conf file in the directory and scan for
+        all "mp4", "mkv", "avi", "aac", "ac3", "wav", and  "mp3" files
+        in the current directory and provide a filtered output from
+        ffprobe for each. The scan results are displayed, and recorded
+        in the fixvid.scan file. Included in the scan is a file named
+        "movie" without any file type or extension. This file may be any
+        of the supported types and FFMPEG can process it. This file, if
+        present, will be the first one scanned, and listed at the top of
+        the scan report.
+
+HELP_INIT
+}
+
 function mix_help {
   remix_help $1;
 }
@@ -100,6 +180,17 @@ function normalize_help {
         on multiple groups, see: $1 help target.
 
 HELP_NORMALIZE
+}
+
+function probe_help {
+  cat <<HELP_PROBE
+
+    probe <file>
+        run ffprobe on the listed file and filter the results, showing
+        the lines pertinent to the file's duration, chapter list, and
+        each stream located in the file.
+
+HELP_PROBE
 }
 
 function remix_help {
@@ -126,6 +217,36 @@ function remix_help {
         groups, see: $1 help target.
 
 HELP_REMIX
+}
+
+function rebuild_help {
+  remux_help;
+}
+
+function remux_help {
+  cat <<HELP_REMUX
+
+    r [<target_num>]
+    remux [<target_num>]
+    rebuild [<target_num>]
+        Create video files from the files and streams identified in the
+        fixvid.conf file. Will call the appropriate commands to build
+        any of the missing streams. Can be used as a one-shot command
+        to completely run through all the needed commands to create each
+        of the streams identified in the fixvid.conf file as being
+        included in the final video file. If used as a one-shot, it is
+        possible that some of the streams which the config file directs
+        to be made, but not included in the final file, will not be
+        created. This command will only require the commands to create
+        the versions of the streams which are flagged as being included.
+        The command may create other streams as part of the process, but
+        there is no certainty that all the streams flagged to be 'made'
+        will be created. This command, and any which it calls, will
+        ignore the <force> parameter.  May process one video group, or
+        all video groups at once. For more information on multiple
+        groups, see: $1 help target.
+
+HELP_REMUX
 }
 
 function stereo_help {
@@ -160,6 +281,21 @@ function titles_help {
 HELP_TITLES
 }
 
+function video_help {
+  cat <<HELP_VIDEO
+
+    v [<target_num> [<force>]]
+    video [<target_num> [<force>]]
+        Extract the video from the file and stream identified in the
+        fixvid.conf file. May process one video group, or all video
+        groups at once. For more information on multiple groups, see:
+        $1 help target.
+
+HELP_VIDEO
+
+}
+
+
 function dynaudnorm_help {
   cat <<DYNAUDNORM
 
@@ -190,3 +326,80 @@ the following parameters, among others, available
 DYNAUDNORM
 }
 
+function filter_help {
+  filters_help;
+}
+
+function filters_help {
+  cat <<'HELP_FILTER'
+
+The FFMPEG documentation for video filters can be found at:
+    https://ffmpeg.org/ffmpeg-filters.html#Video-Filters
+
+For documentation on some specific, and likely, video filters go to:
+    scale:  https://ffmpeg.org/ffmpeg-filters.html#scale-1
+     crop:  https://ffmpeg.org/ffmpeg-filters.html#crop
+   setsar:  https://ffmpeg.org/ffmpeg-filters.html#setdar_002c-setsar
+       eq:  https://ffmpeg.org/ffmpeg-filters.html#eq
+
+HELP_FILTER
+}
+
+function force_help {
+  cat <<FORCE_HELP
+
+  The <force> parameter is available on some of the commands (channels,
+  dts, mix, normalize, remix, stereo, titles, and video) where the
+  command will ignore existing, previously created, files and make every
+  possible combination of volume level and codec which can be made with
+  that command.
+
+  The <force> parameter is not available on the commands which perform
+  multiple commands (audio, build, go, and remux) or the "final" command,
+  which always overwrites the files anyway.
+
+  With the "titles" and "video" commands, which only create one version
+  of the file anyway, it only has the effect of causing the command to
+  overwrite any previously created file.
+
+FORCE_HELP
+}
+
+function target_help {
+  cat <<TARGET_HELP
+
+    <target_num>:
+        Many of the commands can make multiple versions of the streams
+        if they are listed in the config file. Each version has its own
+        group of settings. All audio settings are in audio_<param>_#,
+        subtitles settings are in titles_<param>_# and video settings are
+        in video_<param>_#. For subtitles and audio streams the _stream_
+        parameter is used to determine if that group of settings is to
+        be used, while for video streams the _codec_ parameter is used
+        to indicate an applicable group of settings. Each type of stream
+        uses its own sequence of numbers, all begin with 1, and the list
+        must be sequential, with no gaps. If group 2 is not enabled, any
+        other groups, from 3 and above, will not be used, even if they
+        are defined.
+
+        Commands with the optional argument of [<target_num>] accept a
+        number for the group of settings to process. If the number is a
+        valid choice, as determined above, then only that group will be
+        processed, while all others will be ignored. If the number is
+        not supplied, or is zero, all groups will be processed in one
+        run of the command.
+
+        As the standard for video files is to only have one primary
+        stream for the video, with the possibility of multiple streams
+        for the audio and subtitles, each group of settings for video
+        streams also indicates a version of the final video file(s) to
+        create. Aside from each having one version of the video, all the
+        final video files will have the same set of audio and subtitle
+        streams.
+
+TARGET_HELP
+}
+
+function target_num_help {
+  target_help
+}

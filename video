@@ -32,6 +32,8 @@
 ########################################################################
 
 function video_extract {
+  current_base+="-${current_codec_label:-$current_codec}";
+  saved_base="$current_base";
   [[ ! -s "${current_base}.mkv" ]] || \
   check $force_run || \
     return 0;
@@ -48,11 +50,13 @@ function video_extract {
   }
   [[ $enable_nvidia ]] && \
   [[ ${current_codec,,} =~ hevc|h264 ]] && \
-    nvidia_part="nvenc";
+    nvidia_part="nvenc" || \
+    unset nvidia_part;
+  [[ ${current_codec,,} =~ copy ]] && unset filter_graph;
   codec_part="-c:0 ${current_codec,,}${nvidia_part:+_$nvidia_part} ${current_params}";
-  unset hide_stats;
   build_ffmpeg_output "mkv" "$video_only";
   build_ffmpeg_stream;
+  build_ffmpeg_preamble "${current_base}.mkv" $force_stats;
   build_ffmpeg_command;
   shared_launch "Extracting ${current_title} ${current_codec} ${current_label} Video" $force_block \
     bash -c "$ffmpeg_command";
@@ -60,44 +64,58 @@ function video_extract {
   return 0;
 }
 
+function video_finalize {
+  check $current_save || return 0;
+  current_base="${work_files}-${current_label}-${current_codec_label:-$current_codec}-full";
+  saved_base="$current_base";
+  local video_source="${current_base}.mkv";
+  [[ -s "$video_source" ]] || return 0;
+  local video_dest="${dest_base}-${current_label}-${current_codec_label:-$current_codec}.mkv";
+  link "$video_source" "${dest_base}/${video_dest}" 2>/dev/null;
+}
+
+function video_remux {
+  declare -g titles_default=0;
+  declare -g audio_default=0;
+  declare -g source_list=;
+  declare -g map_list=;
+  declare -g source_count=0;
+  declare -g stream_count=0;
+ current_base+="-${current_codec_label:-$current_codec}";
+  saved_base="$current_base";
+  ffpeg_add_stream "${current_base}.mkv" 'video';
+  [[ "$chapter_source" ]] && [[ -s "$chapter_source" ]] && {
+    build_ffmpeg_input "$chapter_source";
+    source_list+=" $ffmpeg_input";
+    build_meta_filter $source_count
+    (( source_count++ ));
+  } || \
+    build_meta_filter;
+  local main_filter="$meta_filter";
+  current_base="${work_files}-${current_label}-${current_codec_label:-$current_codec}-full";
+  local saved_base="$current_base";
+  [[ ! -s "${current_base}.mkv" ]] || return 0;
+  process_group audio_add_stream 0;
+  process_group titles_add_stream 0;
+  launch video_extract $current_target;
+  input_list="$source_list";
+  stream_list="$map_list";
+  meta_filter="$main_filter";
+  build_file_meta;
+  build_ffmpeg_output;
+  build_ffmpeg_command;
+  shared_launch "Full video ${current_title} ${current_label} ${current_codec}" $force_block \
+   bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
+  return 0;
+}
+
 video_key='codec';
-video_fields="source stream codec label lang title save \
+video_fields="source stream codec codec_label label lang title save \
 params equalizer adjust complex";
 
 # ffmpeg for ignoring all but the chosen type of stream
 video_only="-an -sn -dn";
-
-usage['[v] video']='[<target_num>] Create the bare video stream(s)';
-function video_help {
-  cat <<HELP_VIDEO
-
-    video [<target_num> [<force>]]
-        Extract the video from the file and stream identified in the
-        fixvid.conf file. Multiple streams can be created. For more
-        information on multiple streams, see: $1 help target_num.
-
-HELP_VIDEO
-
-}
-
-function filters_help {
-  cat <<'HELP_FILTER'
-
-The FFMPEG documentation for video filters can be found at:
-    https://ffmpeg.org/ffmpeg-filters.html#Video-Filters
-
-For documentation on some specific, and likely, video filters go to:
-    scale:  https://ffmpeg.org/ffmpeg-filters.html#scale-1
-     crop:  https://ffmpeg.org/ffmpeg-filters.html#crop
-   setsar:  https://ffmpeg.org/ffmpeg-filters.html#setdar_002c-setsar
-       eq:  https://ffmpeg.org/ffmpeg-filters.html#eq
-
-HELP_FILTER
-}
-
-function filter_help {
-  filters_help;
-}
 
 function video_config {
 tee -a 'fixvid.conf' << 'EOVIDEO' >/dev/null
@@ -118,8 +136,13 @@ video_label_1="1080p";
 #  The codec to use in the final product, HEVC or H264 for me
 video_codec_1='HEVC';
 
+#  The label to use instead of the codec in final file names, if blank
+#+ or not set the codec is used, if non-blank, will override the codec
+#+ name for finalized file names.
+#= video_codec_label_1='HEVC';
+
 #  The extra parameters to pass to the video encoder
-#+ This parameter is expected to exist
+#+ This parameter is expected to exist unless the stream is copied
 
 #  HEVC (nVidia) uses these, with adjustments as needed
 video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main -tier high';
@@ -174,6 +197,7 @@ video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc
 #= video_stream_2=0;
 #= video_label_2='1080p';
 #= video_codec_2='H264';
+#= video_codec_label_2='HEVC';
 #= video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high";
 #= Add -pix_fmt to drop from 10-bit to 8-bit
 #= video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high -pix_fmt yuv420p";

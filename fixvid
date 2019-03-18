@@ -120,7 +120,8 @@ case "${command_check,,}" in
   p_probe )
     probe_file  "$command_target";
     ;;
-  r|remux )
+  r|remux|rebuild )
+    unset force_run;
     process_group video_remux "$command_target";
     ;;
   s|stereo )
