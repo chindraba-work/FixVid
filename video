@@ -54,7 +54,7 @@ function video_extract {
   build_ffmpeg_output "mkv" "$video_only";
   build_ffmpeg_stream;
   build_ffmpeg_command;
-  shared_launch "Extracting ${current_title} Video" $force_block \
+  shared_launch "Extracting ${current_title} ${current_codec} ${current_label} Video" $force_block \
     bash -c "$ffmpeg_command";
   reset_ffmpeg_data;
   return 0;

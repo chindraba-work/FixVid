@@ -207,7 +207,7 @@ function shared_launch {
   shift;
   local block=$1;
   shift;
-  check $block && check $max_parallel || {
+  ! check $block || check $max_parallel || {
     echo "$ident is pending full access";
     wait;
   }
@@ -538,7 +538,7 @@ work_files="my_video";
 final_files="The_Movie_Name";
 
 #  The "time" when this was all collected and remuxed.
-timestamp=2018-10-31T13:21:08.69Z;
+timestamp="$(date --utc +%Y-%m-%dT%H:%M:%SZ)";
 
 ########################################################################
 #                                                                      #
