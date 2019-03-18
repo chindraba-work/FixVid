@@ -91,8 +91,11 @@ function see_also {
 #  The short help texts
 
 usage['[a] audio']='[<target_num>] Create all selected versions of the [<target_num>] audio stream(s)';
+usage['[b] build']='[<target_num>] Execute the "audio 0" "titles 0" and "remux [<target_num>]" commands in sequence';
 usage['    channels']='[<target_num>] Low-level command to extract the [<target_num>] surround sound channels';
 usage['[d] dts']='[<target_num>] Create the DTS encoded [<target_num>] audio stream(s)';
+usage['[f] final']='Copy all created and properly tagged files to the final directory';
+usage['[g] go']='[<target_num>] Make all the streams and files indicated in the config file';
 usage['[h] help']='[<command|topic>] Display general help, or help on the given command or topic';
 usage['[i] init']='Scan source candidates, create the fixvid.conf file';
 usage['[m] mix | remix']='[<target_num>] Create the [<target_num>] surround sound audio stream(s)';
@@ -120,6 +123,23 @@ function audio_help {
 HELP_AUDIO
 }
 
+function build_help {
+  cat <<HELP_BUILD
+
+    b [<target_num>]
+    build [<target_num>]
+        A one-shot command to create all the files indicated in the
+        fixvid.conf file for the <targe_num> video group as well as all
+        the files indicated for all audio groups and all subtitle
+        groups. It is the equivalent of using the "titles 0", "audio 0",
+        and "remux [<target_num>]" commands in order. In all cases the
+        <force> parameter is ignored. May process one video group, or
+        all video groups at once. For more information on multiple
+        groups, see: $1 help target.
+
+HELP_BUILD
+}
+
 function channels_help {
   cat <<HELP_EXPLODE
 
@@ -145,6 +165,45 @@ function dts_help {
         $1 help target.
 
 HELP_DTS
+}
+
+function final_help {
+  cat <<HELP_FINAL
+
+    f
+    final
+    finalize
+        Create a properly named subdirectory in the working directory
+        and copy (link) all created files which are marked as "_save_"
+        in the fixvid.conf file into that directory using the final_files
+        setting to create a standard base name, and uses a consistent
+        name for all file types. Will not create missing files, failing
+        silently for each one. Ignores both the <target_num> and <force>
+        parameters as irrelavent, since all existing and qualifying
+        files are linked and none are created.
+
+HELP_FINAL
+}
+
+function finalize_help {
+  final_help;
+}
+
+function go_help {
+  cat <<HELP_GO
+
+  g [<target_num>]
+  go [<target_num>]
+      A one-shot command to make all audio and subtitle streams, remux
+      the <target_num> video and copy the proper files into the
+      finalized subdirectory. Equivalent to running the "build
+      [<target_numm>]" and "finalize" in sequence. Will process all
+      subtitle groups and all audio groups, but only the give
+      <target_num> video group. May process one video group, or all
+      video groups at once. For more information on multiple groups,
+      see: $1 help target.
+
+HELP_GO
 }
 
 function init_help {

@@ -87,23 +87,45 @@ case "${command_check,,}" in
     sleep 1;
     process_group audio_dts "$command_target";
     ;;
-  c|channels )
+  b|build )
+    unset force_run;
+    process_group titles_extract 0;
+    process_group audio_stereo 0;
+    process_group audio_remix 0;
+    sleep 1;
+    process_group audio_dts 0;
+    sleep 1;
+    process_group video_remux "$command_target";
+    ;;
+  channels )
     process_group audio_channels "$command_target";
     ;;
   d|dts )
     process_group audio_dts "$command_target";
     ;;
-  g|go|one_shot )
-    check $force_run && process_group audio_channels 0;
+  f|final|finalize )
+    unset force_run;
+    dest_base="${final_files}-${main_year}";
+    mkdir -p "${dest_base}";
+    process_group titles_finalize 0;
+    process_group audio_finalize 0;
+    process_group video_finalize 0;
+    ;;
+  g|go )
+    unset force_run;
+    process_group titles_extract 0;
     process_group audio_stereo 0;
-    check $force_run && sleep 1;
-    check $force_run && process_group audio_normalize 0;
     process_group audio_remix 0;
-    check $force_run && sleep 1;
+    sleep 1;
     process_group audio_dts 0;
     sleep 1;
-    process_group video_remux 0;
-    ;;
+    process_group video_remux "$command_target";
+    dest_base="${final_files}-${main_year}";
+    mkdir -p "${dest_base}";
+    process_group titles_finalize 0;
+    process_group audio_finalize 0;
+    process_group video_finalize 0;
+  ;;
   h|help )
     help $(basename $0) "$command_target";
     ;;
