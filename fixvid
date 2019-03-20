@@ -31,7 +31,7 @@
 #                                                                      #
 ########################################################################
 
-fixvid_version="0.2.0";
+fixvid_version="1.0.0";
 
 echo "";
 echo "FixVid version $fixvid_version Copyright (c) 2018, 2019 Chindraba - All Rights Reserved";
@@ -130,7 +130,7 @@ case "${command_check,,}" in
     help $(basename $0) "$command_target";
     ;;
   i|init )
-    init_dir;
+    init_dir "$command_target";
     ;;
   m|mix|remix )
     process_group audio_remix "$command_target";
@@ -139,7 +139,7 @@ case "${command_check,,}" in
     process_group audio_stereo "$command_target";
     process_group audio_normalize "$command_target";
     ;;
-  p_probe )
+  p|probe )
     probe_file  "$command_target";
     ;;
   r|remux|rebuild )

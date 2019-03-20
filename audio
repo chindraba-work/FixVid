@@ -1,5 +1,3 @@
-#!/bin/bash
-
 ########################################################################
 #                                                                      #
 #  audio: functions for extracting, converting and creating audio      #
@@ -32,6 +30,50 @@
 #        USA.                                                          #
 #                                                                      #
 ########################################################################
+
+audio_codec_list='aac ac3';
+full_audio_codec_list="${audio_codec_list} dts";
+audio_volumes='original enhanced';
+
+audio_key='stream';
+audio_fields="source stream label title lang channels layout \
+mapping mixing dyna_stereo dyna_origin dyna_center dyna_extras \
+dyna_others filter complex codec ext include_enhanced include_original \
+include_stereo include_channels include_dts include_ac3 include_aac \
+include_custom make_enhanced make_original make_stereo make_channels \
+make_dts make_ac3 make_aac make_custom save_enhanced save_original \
+save_stereo save_channels save_dts save_ac3 save_aac save_custom";
+
+audio_only="-vn -sn -dn";
+aac_stereo_bits='128k';
+aac_channel_bits='420k';
+ac3_stereo_bits='192k';
+ac3_channel_bits='640k';
+wav_mono_bits='384k';
+aac_params='libfdk_aac -profile:a aac_he'
+ac3_params='ac3';
+wav_params='pcm_s16le';
+dts_params="dts -strict -2";
+aac_encode="${aac_codec_params:-$aac_params}";
+ac3_encode="${ac3_codec_params:-$ac3_params}";
+wav_encode="${wav_codec_params:-$wav_params}";
+dts_encode="${dts_codec_parama:-$dts_params}";
+
+dyna_stereo='dynaudnorm=f=66:g=17:p=0.95:m=50:s=20';
+dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
+dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
+dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
+dyna_others='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
+
+audio_layout_71='fl fr fc lf bl br sl sr';
+audio_mapping_71='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR|6-SL|7-SR:7.1';
+audio_mixing_71='pan=stereo|FL < 1.7*FC + 0.7*FL + 0.5*BL + 0.6*SL|FR < 1.7*FC + 0.7*FR + 0.5*BR + 0.6*SR';
+audio_layout_51='fl fr fc lf bl br';
+audio_mapping_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+audio_mixing_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
+audio_layout_51_side='fl fr fc lf sl sr';
+audio_mapping_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+audio_mixing_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
 
 function audio_add_stream {
   local temp_title="$current_title";
@@ -331,10 +373,11 @@ function audio_stereo {
     filter_enhanced="-af '${current_dyna_stereo}'";
     filter_original=;
   } || {
+    filter_base="-filter_complex '[0:${current_stream}]${current_mixing}[STEREO]"
     current_base+='-downmix';
-    filter_enhanced="-filter_complex '[0:${current_stream}] ${current_mixing} [STEREO];[STEREO] ${current_dyna_stereo} [NORM]'";
+    filter_enhanced="$filter_base;[STEREO]${current_dyna_stereo}[NORM]'";
     output_pad_enhanced="[NORM]";
-    filter_original="-filter_complex '[0:${current_stream}] ${current_mixing} [STEREO]'";
+    filter_original="$filter_base'";
     output_pad_original="[STEREO]";
   }
   local audio_volume;
@@ -376,101 +419,67 @@ function audio_stereo_stream {
   check $force_run && {
     build_ffmpeg_audio_encode "$active_codec" "$title_suffix" "$base_suffix";
     shared_launch "${current_title} $title_suffix ${active_codec^^}" \
-      "${current_label}_stereo${base_suffix:+_$base_suffix}_${active_codec}" bash -c "$ffmpeg_command";
+      "${current_label}_stereo${base_suffix:+_$base_suffix}_${active_codec}" \
+      bash -c "$ffmpeg_command";
     reset_ffmpeg_data;
   }
   return 0;
 }
 
 function load_audio_settings {
-  # To include either the original or the enhanced streams, there must
-  # be at least one layout included. DTS, other surround sound, or
-  # stereo. Stereo can be made from any source, so that is default
-  check  $current_include_original || \
-  check $current_include_enhanced && \
-  ! check  $current_include_dts && \
-  ! check  $current_include_channels && \
+  check $current_include_aac || check $current_include_ac3 && \
+  ! check $current_include_channels && ! check $current_include_dts && \
     declare -g current_include_stereo=1;
-
-  # To save either the original or the enhanced streams, there must
-  # be at least one layout saved. DTS, other surround sound, or
-  # stereo. Stereo can be made from any source, so that is default
-  check  $current_save_original || \
-  check $current_save_enhanced && \
-  ! check  $current_save_dts && \
-  ! check  $current_save_channels && \
-    declare -g current_save_stereo=1;
-
-  # To include stereo or non-DTS surround sound, there must be at
-  # at least one codec included as well. Defaults to AC3
-  check $current_include_stereo || \
-  check $current_include_channels && \
+  check $current_include_original || check $current_include_enhanced && \
+  ! check  $current_include_dts && ! check  $current_include_channels && \
+    declare -g current_include_stereo=1;
+  check $current_include_stereo || check $current_include_channels && \
   ! check $current_include_aac && \
     declare -g current_include_ac3=1;
-
-  # To save stereo or non-DTS surround sound, there must be at
-  # at least one codec saved as well. Defaults to AC3
-  check $current_save_stereo || \
-  check $current_save_channels && \
+  check $current_include_dts || check $current_include_channels || \
+  check $current_include_stereo && ! check $current_include_original && \
+    declare -g current_include_enhanced=1;
+  check $current_save_aac || check $current_save_ac3 && \
+  ! check $current_save_channels && ! check $current_save_dts && \
+    declare -g current_save_stereo=1;
+  check  $current_save_original || check $current_save_enhanced && \
+  ! check  $current_save_dts && ! check  $current_save_channels && \
+    declare -g current_save_stereo=1;
+  check $current_save_stereo || check $current_save_channels && \
   ! check $current_save_aac && \
     declare -g current_save_ac3=1;
-
-  # To include any version of the sound, there must be some version of
-  # the audio volume included, either original or enhanced
-  check $current_include_dts || \
-  check $current_include_stereo || \
-  check $current_include_channels && \
-  check $current_include_original || \
-    declare -g current_include_enhanced=1;
-
-  # To save any version of the sound, there must be some version of
-  # the audio volume saved, either original or enhanced
-  check $current_save_dts || \
-  check $current_save_stereo || \
-  check $current_save_channels && \
-  check $current_save_original || \
+  check $current_save_dts || check $current_save_channels || \
+  check $current_save_stereo && ! check $current_save_original && \
     declare -g current_save_enhanced=1;
-
-  # To include any format of audio it must be made first
-  for audio_format in $audio_formats; do
-    include_var="current_include_${audio_format}";
-    check ${!include_var} && declare -g current_make_${audio_format}=1;
+  for check_var in ${!current_include_*}; do
+    check_suffix=${check_var##*_};
+    make_var="current_make_$check_suffix";
+    check ${!check_var} && declare -g $make_var=${!check_var};
   done
-
-  # To make a DTS stream, we need a copy of the channel stream first
-  check $current_make_dts && declare -g current_make_channels=1;
-
-  # To make stereo or non-DTS surround sound, there must be at
-  # at least one codec made as well. Defaults to AC3
-  check $current_make_stereo || \
-  check $current_make_channels && \
+  for check_var in ${!current_save_*}; do
+    check_suffix=${check_var##*_};
+    make_var="current_make_$check_suffix";
+    check ${!check_var} && declare -g $make_var=${!check_var};
+  done
+  check $current_make_aac || check $current_make_ac3 && \
+  ! check $current_make_channels && ! check $current_make_dts && \
+    declare -g current_make_stereo=1;
+  check  $current_make_original || check $current_make_enhanced && \
+  ! check  $current_make_dts && ! check  $current_make_channels && \
+   declare -g current_make_stereo=1;
+  check $current_make_stereo || check $current_make_channels && \
   ! check $current_make_aac && \
     declare -g current_make_ac3=1;
-
-  # To include or save any volume version of audio it must be made first
-  for audio_volume in $audio_volumes; do
-    include_var="current_include_${audio_volume}";
-    save_var="current_save_${audio_volume}";
-    check ${!include_var} || check ${!save_var} && \
-      declare -g current_make_${audio_volume}=1;
-  done
-
-  # Every codec that is included or saved has to be made first
-  for codec in $full_audio_codec_list channels custom dts stereo enhanced original; do
-    include_var="current_include_${codec}";
-    save_var="current_save_${codec}";
-    check ${!include_var} || check ${!save_var} && \
-      declare -g current_make_${codec}=1;
-  done
-
-  # Check for, and set, the dynamic filter settings for the channels
+  check $current_make_dts || check $current_make_channels || \
+  check $current_make_stereo && ! check $current_make_original && \
+    declare -g current_make_enhanced=1;
+  check $current_make_dts && declare -g current_make_channels=1 && \
+  ! check $current_make_aac && declare -g current_make_ac3=1;
   declare -g current_dyna_stereo="${current_dyna_stereo:-$dyna_stereo}";
   declare -g current_dyna_origin="${current_dyna_origin:-$dyna_origin}";
   declare -g current_dyna_center="${current_dyna_center:-$dyna_center}";
   declare -g current_dyna_extras="${current_dyna_extras:-$dyna_extras}";
   declare -g current_dyna_others="${current_dyna_others:-$dyna_others}";
-
-  # Check for, and set default surround sound channel mapping values
   case $current_channels in
     2 ) # Stereo is not surround sound
       ;;
@@ -492,8 +501,6 @@ function load_audio_settings {
     * )
       ;;
   esac
-
-  # Check for, and set, the settings for audio codecs used
   aac_encode="${aac_codec_params:-$aac_params}";
   aac_stereo_bitrate="${aac_stereo_bitrate:-$aac_stereo_bits}";
   aac_channel_bitrate="${aac_channel_bitrate:-$aac_channel_bits}";
@@ -504,53 +511,6 @@ function load_audio_settings {
   wav_mono_bitrate="${wav_mono_bitrate:-$wav_mono_bits}";
   return 0;
 }
-
-audio_codec_list='aac ac3';
-full_audio_codec_list="${audio_codec_list} dts";
-audio_formats='stereo channels dts';
-audio_volumes='original enhanced';
-
-audio_key='stream';
-audio_fields="source stream label title lang channels layout \
-mapping mixing dyna_stereo dyna_origin dyna_center dyna_extras \
-dyna_others filter complex codec ext include_enhanced include_original \
-include_stereo include_channels include_dts include_ac3 include_aac \
-include_custom make_enhanced make_original make_stereo make_channels \
-make_dts make_ac3 make_aac make_custom save_enhanced save_original \
-save_stereo save_channels save_dts save_ac3 save_aac save_custom";
-
-# ffmpeg for ignoring all but the chosen type of stream
-audio_only="-vn -sn -dn";
-
-#  Default values for encoding the audio streams.
-#+ The fixvid.conf file may override these settings
-aac_stereo_bits='128k';
-aac_channel_bits='420k';
-ac3_stereo_bits='192k';
-ac3_channel_bits='640k';
-wav_mono_bits='384k';
-
-aac_params='libfdk_aac -profile:a aac_he'
-ac3_params='ac3';
-wav_params='pcm_s16le';
-dts_params="dts -strict -2";
-aac_encode="${aac_codec_params:-$aac_params}";
-ac3_encode="${ac3_codec_params:-$ac3_params}";
-wav_encode="${wav_codec_params:-$wav_params}";
-dts_encode="${dts_codec_parama:-$dts_params}";
-
-#  Default values for processing surround sound streams.
-#+ The fixvid.conf file may override these settings
-# Used on stereo streams
-dyna_stereo='dynaudnorm=f=66:g=17:p=0.95:m=50:s=20';
-# Used on the 'Center' channel of surround sound streams
-dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
-# Used on the main Left and Right channels
-dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
-# Used for the remaining channels in surround sound streams
-dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
-# Not used but always available. For future use in new audio commands
-dyna_others='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
 
 function audio_config {
 tee -a 'fixvid.conf' << 'EOAUDIO' >/dev/null
@@ -697,6 +657,14 @@ audio_channels_1='5.1(side)';
 #= audio_make_ac3_2=1;
 #= audio_make_aac_2=1;
 #= audio_make_custom_2=1;
+#= audio_save_enhanced_2=1;
+#= audio_save_original_2=1;
+#= audio_save_stereo_2=1;
+#= audio_save_channels_2=1;
+#= audio_save_dts_2=1;
+#= audio_save_ac3_2=1;
+#= audio_save_aac_2=1;
+#= audio_save_custom_2=1;
 #= audio_codec_2='';
 #= audio_filter_2='';
 #= audio_complex_2=''
@@ -717,23 +685,23 @@ audio_channels_1='5.1(side)';
 #= ac3_codec_params='libfdk_aac -profile:a aac_he -b:a 128k';
 #= wav_codec_params='pcm_s16le -b:a 384k';
 
-# SETTINGS for standard surround sound
+# SETTINGS for standard surround sound (defaults shown)
 ######################################
 
 ### Use for 7.1 surround sound
-audio_layout_71='fl fr fc lf bl br sl sr';
-audio_mapping_71='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR|6-SL|7-SR:7.1';
-audio_mixing_71='pan=stereo|FL < 1.7*FC + 0.7*FL + 0.5*BL + 0.6*SL|FR < 1.7*FC + 0.7*FR + 0.5*BR + 0.6*SR';
+# audio_layout_71='fl fr fc lf bl br sl sr';
+# audio_mapping_71='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR|6-SL|7-SR:7.1';
+# audio_mixing_71='pan=stereo|FL < 1.7*FC + 0.7*FL + 0.5*BL + 0.6*SL|FR < 1.7*FC + 0.7*FR + 0.5*BR + 0.6*SR';
 
 ### Use for 5.1 surround sound
-audio_layout_51='fl fr fc lf bl br';
-audio_mapping_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
-audio_mixing_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
+# audio_layout_51='fl fr fc lf bl br';
+# audio_mapping_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+# audio_mixing_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
 
 ### Use for 5.1(side) surround sound
-audio_layout_51_side='fl fr fc lf sl sr';
-audio_mapping_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
-audio_mixing_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
+# audio_layout_51_side='fl fr fc lf sl sr';
+# audio_mapping_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+# audio_mixing_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
 
 #  SETTINGS for dynaudnorm filter
 #################################

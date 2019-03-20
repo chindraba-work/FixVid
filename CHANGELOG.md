@@ -1,9 +1,10 @@
-# _SmallSite_
+# _FixVid_
 
 ## Changelog
 
 ### v1.0.0
 
+- Fine tune logic for selecting which versions of the audio stream need to be made.
 - Add functions for creating the exportable file set
 - Rewrite the help and usage information for clarity
 - Modify the operations, and some meanings, for the complex commands

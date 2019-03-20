@@ -1,5 +1,3 @@
-#!/bin/bash
-
 ########################################################################
 #                                                                      #
 #  titles: functions to create multiple subtitle versions              #
@@ -31,9 +29,15 @@
 #                                                                      #
 ########################################################################
 
+titles_key='stream';
+titles_fields="source stream label lang title type include SDH save";
+
+subtitles_only="-vn -an -dn";
+
 function titles_add_stream {
   check $current_include || return 0;
   launch titles_extract $current_target;
+  local titles_ext;
   case ${current_type,,} in
     text|subrip|srt|ass|aas  )
       titles_ext='ass';
@@ -41,11 +45,15 @@ function titles_add_stream {
     dvd_sub*|vobsub )
       titles_ext='mkv';
       ;;
+    file )
+      title_ext="${current_source##*.}";
+      ;;
     * )
       return 0
       ;;
   esac
-  ffpeg_add_stream "${current_base}.${titles_ext}" 'titles' "${current_SDH:++hearing_impaired}"
+  ffpeg_add_stream "${current_base}.${titles_ext}" 'titles' \
+    "${current_SDH:++hearing_impaired}"
   return 0;
 }
 
@@ -72,6 +80,14 @@ function titles_extract {
       ;;
     dvd_sub*|vobsub )
       titles_build;
+      ;;
+    file )
+      local title_ext="${current_source##*.}";
+      [[ ! -s "$current_source" ]] && return 0;
+      [[ ! -s "${current_base}.$title_ext" ]] || check $force_run || \
+        return 0;
+      cp "$current_source" "${current_base}.$title_ext";
+      return 0;
       ;;
     * )
       return 0
@@ -106,13 +122,6 @@ function titles_finalize {
   return 0;
 }
 
-titles_key='stream';
-titles_fields="source stream label lang title type include SDH \
-file save";
-
-# ffmpeg for ignoring all but the chosen type of stream
-subtitles_only="-vn -an -dn";
-
 function titles_config {
 tee -a 'fixvid.conf' << 'EOtitles' >/dev/null
 
@@ -125,7 +134,6 @@ tee -a 'fixvid.conf' << 'EOtitles' >/dev/null
 #
 #  File that has the subtitles to use as the final subtitle stream
 #= titles_source_1='movie';
-#= titles_file_1='title.srt';
 titles_stream_1=;
 
 #  The label used in the filename to separate one set of subtitles from
@@ -135,12 +143,8 @@ titles_stream_1=;
 #+ and SRT files for use in players which need them. File name will be
 #+ something like:
 #+       The_Movie_Name-CHI.srt
-#+ for the case of titles_label set to CHI. The one exception to this is
-#+ if the titles_label value is exactly DEFAULT, in which case the suffix
-#+ will omitted. Many video players will take a subtitle file with the
-#+ same name as the video file and consider them to be the set to load
-#+ automatically
-titles_label_1='titles';
+#+ for the case of titles_label set to CHI.
+#= titles_label_1='titles';
 
 #  The 3-letter language code for the language the subtitles are in
 titles_lang_1='eng';
@@ -170,7 +174,6 @@ titles_include_1=1;
 #+ numbers for each set of parameters. All parameters are needed for the
 #+ system to create the subtitles described.
 #= titles_source_2='movie.mkv';
-#= titles_file_2='titles-CHI.srt'
 #= titles_stream_2=3;
 #= titles_label_2='DEFAULT';
 #= titles_title_2='Standard Subtitles';

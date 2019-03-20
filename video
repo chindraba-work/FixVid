@@ -1,5 +1,3 @@
-#!/bin/bash
-
 ########################################################################
 #                                                                      #
 #  video: functions to extract different versions of the video stream  #
@@ -31,6 +29,12 @@
 #                                                                      #
 ########################################################################
 
+video_key='codec';
+video_fields="source stream codec codec_label label lang title save \
+params equalizer adjust complex";
+
+video_only="-an -sn -dn";
+
 function video_extract {
   current_base+="-${current_codec_label:-$current_codec}";
   saved_base="$current_base";
@@ -53,12 +57,14 @@ function video_extract {
     nvidia_part="nvenc" || \
     unset nvidia_part;
   [[ ${current_codec,,} =~ copy ]] && unset filter_graph;
-  codec_part="-c:0 ${current_codec,,}${nvidia_part:+_$nvidia_part} ${current_params}";
+  codec_part="-c:0 ${current_codec,,}${nvidia_part:+_$nvidia_part}";
+  codec_part+=" ${current_params}";
   build_ffmpeg_output "mkv" "$video_only";
   build_ffmpeg_stream;
   build_ffmpeg_preamble "${current_base}.mkv" $force_stats;
   build_ffmpeg_command;
-  shared_launch "Extracting ${current_title} ${current_codec} ${current_label} Video" $force_block \
+  launch_label="${current_title} ${current_codec} ${current_label}";
+  shared_launch "Extracting $launch_label Video" $force_block \
     bash -c "$ffmpeg_command";
   reset_ffmpeg_data;
   return 0;
@@ -66,12 +72,15 @@ function video_extract {
 
 function video_finalize {
   check $current_save || return 0;
-  current_base="${work_files}-${current_label}-${current_codec_label:-$current_codec}-full";
+  current_base="${work_files}-${current_label}";
+  current_base+="-${current_codec_label:-$current_codec}-full";
   saved_base="$current_base";
   local video_source="${current_base}.mkv";
   [[ -s "$video_source" ]] || return 0;
-  local video_dest="${dest_base}-${current_label}-${current_codec_label:-$current_codec}.mkv";
+  local video_dest="${dest_base}-${current_label}";
+  video_dest="-${current_codec_label:-$current_codec}.mkv";
   link "$video_source" "${dest_base}/${video_dest}" 2>/dev/null;
+  return 0;
 }
 
 function video_remux {
@@ -92,7 +101,8 @@ function video_remux {
   } || \
     build_meta_filter;
   local main_filter="$meta_filter";
-  current_base="${work_files}-${current_label}-${current_codec_label:-$current_codec}-full";
+  current_base="${work_files}-${current_label}";
+  current_base+="-${current_codec_label:-$current_codec}-full";
   local saved_base="$current_base";
   [[ ! -s "${current_base}.mkv" ]] || return 0;
   process_group audio_add_stream 0;
@@ -104,18 +114,12 @@ function video_remux {
   build_file_meta;
   build_ffmpeg_output;
   build_ffmpeg_command;
-  shared_launch "Full video ${current_title} ${current_label} ${current_codec}" $force_block \
+  launch_label="${current_title} ${current_label} ${current_codec}";
+  shared_launch "Full video $launch_label" $force_block \
    bash -c "$ffmpeg_command";
   reset_ffmpeg_data;
   return 0;
 }
-
-video_key='codec';
-video_fields="source stream codec codec_label label lang title save \
-params equalizer adjust complex";
-
-# ffmpeg for ignoring all but the chosen type of stream
-video_only="-an -sn -dn";
 
 function video_config {
 tee -a 'fixvid.conf' << 'EOVIDEO' >/dev/null

@@ -1,0 +1,2173 @@
+#!/bin/bash
+
+########################################################################
+#                                                                      #
+#  fixvid-full: the all-in-one version of the FixVid system            #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Chindraba (Ronald Lamoreaux)                #
+#                          <fixvid@chindraba.work>                     #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+fixvid_version="1.0.0";
+
+declare -A usage;
+usage['[a] audio']='[<target>] Create all selected versions of the [<target>] audio stream(s)';
+usage['[b] build']='[<target>] Execute the "audio" "titles" and "remux" commands in sequence';
+usage['    channels']='[<target>] Low-level command to extract the [<target>] surround sound channels';
+usage['[d] dts']='[<target>] Create the DTS encoded [<target>] audio stream(s)';
+usage['[f] final']='Copy all created and properly tagged files to the final directory';
+usage['[g] go']='[<target>] Make and copy all the streams and files indicated in the config file';
+usage['[h] help']='[<command|topic>] Display general help, or help on the given command or topic';
+usage['[i] init']='Scan source candidates, create the fixvid.conf and fixvid.scan files';
+usage['[m] mix | remix']='[<target>] Create the [<target>] surround sound audio stream(s)';
+usage['    normalize']='[<target>] Low-level command to normalize the [<target>] surround sound channels';
+usage['[p] probe']='<file_name> Show filtered results for the streams in the file';
+usage['[r] remux']='[<target>] Collect the created streams into a new video file using the given video stream';
+usage['[s] stereo']='[<target>] Create the [<target>] stereo audio stream(s)';
+usage['[t] titles']='[<target>] Extract/process the [<target>] subtitle stream(s)';
+usage['    version']='Display the version number and exit';
+usage['[v] video']='[<target>] Create the bare [<target>] video stream(s)';
+
+stack_num=0;
+force_block=1;
+force_stats=1;
+control_fields="base limit list prefix target all continue process";
+video_key='codec';
+video_fields="source stream codec codec_label label lang title save \
+params equalizer adjust complex";
+audio_key='stream';
+audio_fields="source stream label title lang channels layout \
+mapping mixing dyna_stereo dyna_origin dyna_center dyna_extras \
+dyna_others filter complex codec ext include_enhanced include_original \
+include_stereo include_channels include_dts include_ac3 include_aac \
+include_custom make_enhanced make_original make_stereo make_channels \
+make_dts make_ac3 make_aac make_custom save_enhanced save_original \
+save_stereo save_channels save_dts save_ac3 save_aac save_custom";
+titles_key='stream';
+titles_fields="source stream label lang title type include SDH save";
+ffmpeg_variables="ffmpeg_command ffmpeg_preamble ffmpeg_input \
+  input_list meta_filter filter_graph output_pad codec_part \
+  stream_meta ffmpeg_stream stream_list file_meta ffmpeg_output";
+scan_extensions='mp4 mkv avi aac ac3 wav mp3';
+video_only="-an -sn -dn";
+audio_only="-vn -sn -dn";
+subtitles_only="-vn -an -dn";
+input_flags="-fflags +igndts";
+output_flags="-fflags +genpts";
+use_threads="-threads 0";
+strip_meta="-map_metadata -1";
+strip_chapters="-map_chapters -1";
+audio_codec_list='aac ac3';
+full_audio_codec_list="${audio_codec_list} dts";
+audio_volumes='original enhanced';
+aac_stereo_bits='128k';
+aac_channel_bits='420k';
+ac3_stereo_bits='192k';
+ac3_channel_bits='640k';
+wav_mono_bits='384k';
+aac_params='libfdk_aac -profile:a aac_he'
+ac3_params='ac3';
+wav_params='pcm_s16le';
+dts_params="dts -strict -2";
+aac_encode="${aac_codec_params:-$aac_params}";
+ac3_encode="${ac3_codec_params:-$ac3_params}";
+wav_encode="${wav_codec_params:-$wav_params}";
+dts_encode="${dts_codec_parama:-$dts_params}";
+dyna_stereo='dynaudnorm=f=66:g=17:p=0.95:m=50:s=20';
+dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
+dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
+dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
+dyna_others='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
+audio_layout_71='fl fr fc lf bl br sl sr';
+audio_mapping_71='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR|6-SL|7-SR:7.1';
+audio_mixing_71='pan=stereo|FL < 1.7*FC + 0.7*FL + 0.5*BL + 0.6*SL|FR < 1.7*FC + 0.7*FR + 0.5*BR + 0.6*SR';
+audio_layout_51='fl fr fc lf bl br';
+audio_mapping_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+audio_mixing_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
+audio_layout_51_side='fl fr fc lf sl sr';
+audio_mapping_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+audio_mixing_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
+
+function cache_settings {
+  [[ $current_prefix ]] || return 0;
+  local fields="${current_prefix}_fields";
+  local field;
+  local var;
+  for field in ${!fields} ${control_fields}; do
+    var="current_${field}";
+    [[ ${!var} ]] && declare -g stack_${stack_num}_${field}="${!var}";
+  done
+  (( stack_num++ ));
+  return 0;
+}
+
+function check {
+  ! (( $1-1 ));
+}
+
+function clear_settings {
+  local field;
+  for field in ${!current_*} ${control_fields}; do
+    unset ${field};
+  done
+  return 0;
+}
+
+function init_dir {
+  [[ $1 ]] && {
+    [[ -s fixvid.conf-minimal ]] || make_minimal
+  } || {
+    local section;
+    [[ -s fixvid.conf ]] || for section in main video titles audio; do
+      config="${section}_config";
+      $config;
+    done
+  }
+  rm -f fixvid.scan;
+  if [[ -s "movie" ]]; then
+    echo "";
+    echo "*********************************" | tee -a "fixvid.scan";
+    echo "    Reading movie:" | tee "fixvid.scan";
+    echo "---------------------------------" | tee -a "fixvid.scan";
+    probe_file "movie" | tee -a "fixvid.scan";
+    echo "" | tee -a "fixvid.scan";
+    echo "" | tee -a "fixvid.scan";
+  fi
+  local file_type;
+  local filename;
+  for file_type in $scan_extensions; do
+    for filename in *.$file_type; do
+      if [ -s "$filename" ]; then
+        echo "";
+        echo "*********************************" | tee -a "fixvid.scan";
+        echo "    Reading $filename:" | tee -a "fixvid.scan";
+        echo "---------------------------------" | tee -a "fixvid.scan";
+        probe_file "$filename" | tee -a "fixvid.scan";
+        echo "" | tee -a "fixvid.scan";
+        echo "" | tee -a "fixvid.scan";
+      fi
+    done
+  done
+  return 0;
+}
+
+function launch {
+  local launch_command="$1";
+  local new_prefix="${launch_command%%_*}";
+  local new_target=$2;
+  local range_var="${new_prefix}_limit";
+  (( 0 < $new_target )) && (( $new_target < ${!range_var} )) || return 0;
+  cache_settings;
+  clear_settings;
+  load_settings $new_prefix $new_target;
+  current_base="${work_files}-${current_prefix}-${current_label}${3:+-$3}";
+  saved_base="$current_base";
+  saved_title="$current_title";
+  $launch_command "$new_target";
+  recall_settings;
+  return 0;
+}
+
+function load_limit {
+  local load_prefix="$1";
+  local load_var="${load_prefix}_key";
+  local load_key="${!load_var}";
+  local load_limit=1;
+  local var="${load_prefix}_${load_key}_${load_limit}";
+  while [[ ${!var} ]]; do
+    ((load_limit++));
+    var="${load_prefix}_${load_key}_${load_limit}";
+  done;
+  declare -g ${load_prefix}_limit=$load_limit;
+  return 0;
+}
+
+function load_settings {
+  clear_settings;
+  current_prefix="$1";
+  current_target="${2:-1}";
+  [[ 0 == $2 ]] && current_target=1;
+  local var="${current_prefix}_limit";
+  current_limit=${!var};
+  [[ $current_target -lt $current_limit ]] || return 0;
+  local field_list="${current_prefix}_fields";
+  local field;
+  for field in ${!field_list}; do
+    var="${current_prefix}_${field}_${current_target}";
+    declare -g current_${field}="${!var}";
+  done
+  declare -g current_source="${current_source:-$main_source}";
+  declare -g current_lang="${current_lang:-$main_lang}";
+  declare -g current_label="${current_label:-${current_prefix}-${current_target}}";
+  declare -g current_title="${current_title:-$main_title}"
+  [[ 'audio' = $current_prefix ]] && load_audio_settings;
+  return 0;
+}
+
+function probe_file {
+  local check_file=$1;
+  [[ -s "$check_file" ]] || return 0;
+  ffprobe "$check_file" 2>&1 | \
+    grep -A 2 -E '^\s*(Chapter|Duration|Stream)' | \
+    grep -v '^--';
+  return 0;
+}
+
+function process_group {
+  [[ $1 ]] || return;
+  cache_settings;
+  load_settings "${1%%_*}" "${2:-0}";
+  [[ 0 -eq ${2:-0} ]] && current_all=1 || unset current_all;
+  current_process="$1";
+  [[ $current_target -lt $current_limit ]] && current_continue=1 || \
+    unset current_continue;
+  while check $current_continue; do
+    launch $current_process $current_target $3;
+    (( current_target++ ));
+    check $current_all && check $current_continue && \
+    [[ $current_target -lt $current_limit ]] || \
+      unset current_continue;
+  done
+  recall_settings;
+  return 0;
+}
+
+function recall_settings {
+  clear_settings;
+  (( 0 < $stack_num )) || return 0;
+  (( stack_num-- ));
+  var="stack_${stack_num}_prefix";
+  current_prefix="${!var}";
+  fields="${current_prefix}_fields";
+  for field in ${!fields} ${control_fields}; do
+    var="stack_${stack_num}_${field}";
+    [[ ${!var} ]] && declare -g current_${field}="${!var}"
+  done
+  return 0;
+}
+
+function shared_launch {
+# Function to utilize multiple cores better
+#
+# Code from 'arnaldocan' https://stackoverflow.com/users/2615062 on
+# StackOverflow. An answer to "How do you run multiple programs in
+# parallel from a bash script?". See:
+# https://stackoverflow.com/a/42098494/7412956
+#
+# All Stack Overflow contributions licensed under cc by-sa 3.0 with
+# attribution required.
+
+  local ident=$1;
+  shift;
+  local block=$1;
+  shift;
+  ! check $block || check $max_parallel || {
+    echo "$ident is pending full access";
+    wait;
+  }
+  local run_time="";
+  local finish_time="";
+  local finish_epoch="";
+  local launch_time=$(date +"%T");
+  local launch_epoch=$(date +"%s.%N");
+  echo "Processing $ident ...";
+ "$@" && {
+   finish_epoch=$(date +"%s.%N");
+   finish_time=$(date +"%T");
+   run_time=$(echo "$finish_epoch - $launch_epoch" | bc -l);
+   echo "... $ident complete ($launch_time - $finish_time) [$run_time sec]";
+ } &
+  local pid=$!;
+  local my_pid=$$
+  [[ 1 == $block ]] && \
+    wait $pid;
+  [[ 1 == $block ]]  || \
+    [[ '-' == $block ]] || \
+    [[ 0 == $block ]] || {
+      declare -g ${block}_pid=$pid;
+    }
+  local parallels=$(ps -eo ppid | grep -w $my_pid | wc -w)
+  parallels=$((parallels-1))
+  if (( parallels >= max_parallel )); then
+      wait -n
+  fi
+  return 0;
+}
+
+function reset_ffmpeg_data {
+  local var;
+  for var in $ffmpeg_variables; do
+    unset $var;
+  done
+  return 0;
+}
+
+function build_ffmpeg_audio_encode {
+  local my_codec=${1:-ac3};
+  local my_param="${my_codec}_encode";
+  local my_encode="${!my_param}";
+  local my_bitrate="${my_codec}_bitrate";
+  local my_bits="${!my_bitrate}";
+  local temp_title="$current_title";
+  local temp_base="$current_base";
+  current_title="${temp_title}${2:+ $2}";
+  current_base="${temp_base}${3:+-$3}";
+  codec_part="${my_encode:+-c:a $my_encode}${my_bits:+ -b:a $my_bits}";
+  [[ ${4+zz} ]] || [[ ! $filter_graph ]] && filter_graph="$4";
+  [[ ${5+yy} ]] || [[ ! $output_pad ]] && output_pad="$5";
+  build_ffmpeg_stream;
+  build_ffmpeg_output "${my_codec}" "$audio_only";
+  build_ffmpeg_preamble "${current_base}.${my_codec}";
+  build_ffmpeg_command;
+  current_title="$temp_title";
+  current_base="$temp_base";
+  return 0;
+}
+
+function build_ffmpeg_command {
+  [[ $ffmpeg_preamble ]] || build_ffmpeg_preamble "${current_base}.mkv";
+  [[ $input_list ]] || [[ $ffmpeg_input ]] || build_ffmpeg_input;
+  [[ $meta_filter ]] || build_meta_filter;
+  ffmpeg_command="$ffmpeg_preamble \
+    ${input_list:-$ffmpeg_input} \
+    $meta_filter \
+    $filter_graph \
+    ${stream_list:-$ffmpeg_stream} \
+    $ffmpeg_output";
+  return 0;
+}
+
+function build_ffmpeg_input {
+  ffmpeg_input="$input_flags -i '${1:-$current_source}'";
+  return 0;
+}
+
+function build_ffmpeg_output {
+  [[ $file_meta ]] || build_file_meta;
+  ffmpeg_output="$file_meta $use_threads $output_flags $2 \
+    ${current_base}${3:+-$3}.${1:-mkv}"
+  return 0;
+}
+
+function build_ffmpeg_preamble {
+  ffmpeg_preamble="FFREPORT=file='fixvid-$1.log':level=40 \
+    ffmpeg -hide_banner -y -loglevel error";
+  check $2 || \
+  ! check $hide_stats && \
+    ffmpeg_preamble+=" -stats";
+  return 0;
+}
+
+function build_ffmpeg_stream {
+  [[ $output_pad ]] ||
+    output_pad="0:${current_stream:-0}";
+  [[ $stream_meta ]] || build_stream_meta;
+  ffmpeg_stream="-map $output_pad $codec_part $stream_meta";
+  [[ $ffmpeg_output ]] && \
+    ffmpeg_stream+=" $ffmpeg_output" && \
+    unset ffmpeg_output;
+  return 0;
+}
+
+function build_file_meta {
+  local alt_title="$main_title${1:+ [$1]}";
+  [[ ! $1 ]] && [[ $current_label ]] && \
+    alt_title+=" $current_prefix (${current_label})";
+  file_meta="-metadata 'creation_time=$timestamp' \
+    -metadata 'lang=${current_lang:-$main_lang}' \
+    -metadata 'title=${current_title:-$alt_title}'";
+  return 0;
+}
+
+function build_meta_filter {
+  meta_filter="$strip_meta -map_chapters ${1:--1}";
+  return 0;
+}
+
+function build_stream_meta {
+  local alt_title="$main_title${2:+ ($2)}";
+  [[ ! $2 ]] && [[ $current_label ]] && \
+    alt_title+=" $current_prefix (${current_label})";
+  stream_meta="-metadata:s:${1:-0} 'lang=${current_lang:-$main_lang}' \
+    -metadata:s:${1:-0} 'title=${current_title:-$alt_title}'";
+  return 0;
+}
+
+function ffpeg_add_stream {
+  local source_file;
+  [[ "$1" ]] && source_file="$1" || return 0;
+  local stream_prefix="${2:-video}";
+  shift;
+  shift;
+  local var="${stream_prefix}_default";
+  local extra_meta;
+  check ${!var} && \
+    extra_meta="-disposition:$stream_count -default" || {
+      extra_meta="-disposition:$stream_count +default";
+      declare -g $var=1;
+    }
+  while [[ "$1" ]]; do
+    extra_meta="${extra_meta} -disposition:$stream_count $1";
+    shift;
+  done
+  build_ffmpeg_input "$source_file";
+  source_list+=" $ffmpeg_input";
+  build_stream_meta $stream_count;
+  stream_meta+=" $extra_meta";
+  output_pad="${source_count}:0";
+  codec_part="-c:${stream_count} copy";
+  build_ffmpeg_stream;
+  map_list+=" $ffmpeg_stream";
+  (( source_count++ ));
+  (( stream_count++ ));
+  reset_ffmpeg_data;
+  return 0;
+}
+
+function video_extract {
+  current_base+="-${current_codec_label:-$current_codec}";
+  saved_base="$current_base";
+  [[ ! -s "${current_base}.mkv" ]] || \
+  check $force_run || \
+    return 0;
+  [[ $current_adjust ]] && check $current_complex && {
+    filter_graph="-filter_complex '[0:${current_stream}] yadif\
+      ${current_equalizer:+[VEQ];[VEQ] $current_equalizer} [VIN];\
+      ${current_adjust}'";
+    output_pad="[VOUT]";
+  } || {
+    filter_graph="-vf 'yadif\
+      ${current_equalizer:+ ,$current_equalizer}\
+      ${current_adjust:+ ,$current_adjust}'";
+    output_pad="0:${current_stream:-0}"
+  }
+  [[ $enable_nvidia ]] && \
+  [[ ${current_codec,,} =~ hevc|h264 ]] && \
+    nvidia_part="nvenc" || \
+    unset nvidia_part;
+  [[ ${current_codec,,} =~ copy ]] && unset filter_graph;
+  codec_part="-c:0 ${current_codec,,}${nvidia_part:+_$nvidia_part}";
+  codec_part+=" ${current_params}";
+  build_ffmpeg_output "mkv" "$video_only";
+  build_ffmpeg_stream;
+  build_ffmpeg_preamble "${current_base}.mkv" $force_stats;
+  build_ffmpeg_command;
+  launch_label="${current_title} ${current_codec} ${current_label}";
+  shared_launch "Extracting $launch_label Video" $force_block \
+    bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
+  return 0;
+}
+
+function video_finalize {
+  check $current_save || return 0;
+  current_base="${work_files}-${current_label}";
+  current_base+="-${current_codec_label:-$current_codec}-full";
+  saved_base="$current_base";
+  local video_source="${current_base}.mkv";
+  [[ -s "$video_source" ]] || return 0;
+  local video_dest="${dest_base}-${current_label}";
+  video_dest="-${current_codec_label:-$current_codec}.mkv";
+  link "$video_source" "${dest_base}/${video_dest}" 2>/dev/null;
+  return 0;
+}
+
+function video_remux {
+  declare -g titles_default=0;
+  declare -g audio_default=0;
+  declare -g source_list=;
+  declare -g map_list=;
+  declare -g source_count=0;
+  declare -g stream_count=0;
+ current_base+="-${current_codec_label:-$current_codec}";
+  saved_base="$current_base";
+  ffpeg_add_stream "${current_base}.mkv" 'video';
+  [[ "$chapter_source" ]] && [[ -s "$chapter_source" ]] && {
+    build_ffmpeg_input "$chapter_source";
+    source_list+=" $ffmpeg_input";
+    build_meta_filter $source_count
+    (( source_count++ ));
+  } || \
+    build_meta_filter;
+  local main_filter="$meta_filter";
+  current_base="${work_files}-${current_label}";
+  current_base+="-${current_codec_label:-$current_codec}-full";
+  local saved_base="$current_base";
+  [[ ! -s "${current_base}.mkv" ]] || return 0;
+  process_group audio_add_stream 0;
+  process_group titles_add_stream 0;
+  launch video_extract $current_target;
+  input_list="$source_list";
+  stream_list="$map_list";
+  meta_filter="$main_filter";
+  build_file_meta;
+  build_ffmpeg_output;
+  build_ffmpeg_command;
+  launch_label="${current_title} ${current_label} ${current_codec}";
+  shared_launch "Full video $launch_label" $force_block \
+   bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
+  return 0;
+}
+
+function audio_add_stream {
+  local temp_title="$current_title";
+  local stereo_suffix;
+  [[ 2 = $current_channels ]] && \
+    stereo_suffix="stereo" || \
+    stereo_suffix="downmix";
+  check $current_include_stereo && check $current_include_enhanced && \
+    audio_set_stream audio_stereo "$current_target" \
+      "[Enhanced Stereo]" "$stereo_suffix-norm";
+  check $current_include_stereo && check $current_include_original && \
+    audio_set_stream audio_stereo "$current_target" \
+      "[Stereo]" "$stereo_suffix";
+  [[ 2 = $current_channels ]] && return 0;
+  check $current_include_channels && check $current_include_enhanced && \
+    audio_set_stream audio_remix "$current_target" \
+      "[Enhanced Surround Sound]" "norm";
+  check $current_include_channels && check $current_include_original && \
+    audio_set_stream audio_copy_surround "$current_target" \
+      "[Surround Sound]";
+  check $current_include_dts && check $current_include_enhanced && \
+    audio_set_stream audio_dts "$current_target" \
+      "[DTS Enhanced]" "norm";
+  check $current_include_dts && check $current_include_original && \
+    audio_set_stream audio_dts "$current_target" \
+      "[DTS]";
+  current_title="$temp_title";
+  return 0;
+}
+
+function audio_channels {
+  [[ 2 = $current_channels ]] && return 0;
+  check $current_make_enhanced && check $current_make_channels || \
+    check $force_run || return 0;
+  local file_missing=0;
+  local channel;
+  for channel in $current_layout; do
+    [[ -s "${current_base}-channel-${channel,,}.wav" ]] || \
+      file_missing=1;
+  done
+  check $file_missing || check $force_run || return 0;
+  rm -f "${current_base}-channel-adj-*wav";
+  unset stream_list;
+  unset output_pad;
+  local  pad_list=;
+  for channel in $current_layout; do
+    output_pad="[${channel^^}]";
+    pad_list+="${output_pad}";
+    current_title="${saved_title} Audio ${output_pad} Channel";
+    build_stream_meta;
+    build_file_meta;
+    build_ffmpeg_output 'wav' "$audio_only" "channel-${channel,,}";
+    codec_part="-c:a $wav_encode -b:a $wav_mono_bitrate";
+    build_ffmpeg_stream;
+    stream_list+=" $ffmpeg_stream";
+    unset ffmpeg_stream;
+    current_title="${saved_title}";
+  done
+  build_ffmpeg_preamble "${current_base}-Channels.wav";
+  filter_graph="-filter_complex '[0:$current_stream] \
+    channelsplit=channel_layout=$current_channels $pad_list'";
+  build_ffmpeg_command;
+  shared_launch "${current_title} Channels" \
+    "${current_label}_split" bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
+  return 0;
+}
+
+function audio_copy_surround {
+  check $current_make_original && check $current_make_channels || \
+    check $force_run || return 0;
+  ac3_bitrate="$ac3_channel_bitrate";
+  aac_bitrate="$aac_channel_bitrate";
+  local codec;
+  for codec in $audio_codec_list; do
+    local check_var="current_make_$codec";
+    check ${!check_var} && check $current_make_original && \
+    [[ ! -s "${current_base}.$codec" ]] || \
+    check $force_run && {
+      build_ffmpeg_audio_encode "$codec" '[Surround Sound]';
+      shared_launch "${current_title} ${codec^^}" \
+        "${current_label}_channel_copy_$codec" bash -c "$ffmpeg_command";
+      reset_ffmpeg_data;
+    }
+  done
+  return 0;
+}
+
+function audio_dts {
+  [[ 2 = $current_channels ]] && return 0;
+  check $current_make_dts || check $force_run || return 0;
+  launch audio_remix $current_target;
+  audio_dts_stream 'original' '[DTS]';
+  audio_dts_stream 'enhanced' '[DTS Enhanced]' 'norm';
+  return 0;
+}
+
+function audio_dts_stream {
+  local check_var="current_make_$1";
+  local active_codec;
+  local active_ext;
+  local active_level;
+  local active_sourcel
+  current_title="${saved_title}${2:+ $2}";
+  current_base="${saved_base}${3:+-$3}";
+  local pid_var="${current_label}_channel_";
+  [[ $3 ]] && pid_var+='norm' || pid_var+='copy';
+  [[ ! -s "${current_base}.dts" ]] &&  check ${!check_var} || \
+  check $force_run && {
+    check $current_make_ac3 && \
+      active_ext="ac3" || \
+      active_ext="aac";
+    pid_var+="_${active_ext}_pid";
+    active_source="${current_base}.${active_ext}";
+    output_pad="0:0";
+    build_ffmpeg_input "$active_source";
+    build_ffmpeg_audio_encode 'dts' '[DTS]'
+    [[ ${!pid_var} ]] && wait ${!pid_var} 2&>/dev/null;
+    shared_launch "${current_title}" \
+      "${current_label}_dts" bash -c "$ffmpeg_command";
+    reset_ffmpeg_data;
+    return 0;
+  }
+}
+
+function audio_finalize {
+  local stereo_suffix;
+  [[ 2 = $current_channels ]] && \
+    stereo_suffix="stereo" || \
+    stereo_suffix="downmix";
+  check $current_save_stereo && check $current_save_enhanced && \
+    audio_save_stream "Enhanced_Stereo" "$stereo_suffix-norm";
+  check $current_save_stereo && check $current_save_original && \
+    audio_save_stream "Stereo" "$stereo_suffix";
+  [[ 2 = $current_channels ]] && return 0;
+  check $current_save_channels && check $current_save_enhanced && \
+    audio_save_stream "Enhanced_Surround_Sound" "norm";
+  check $current_save_channels && check $current_save_original && \
+    audio_save_stream "Surround_Sound";
+  check $current_save_dts && check $current_save_enhanced && \
+    audio_save_stream "DTS_Enhanced" "norm";
+  check $current_save_dts && check $current_save_original && \
+    audio_save_stream "DTS";
+  return 0;
+}
+
+function audio_normalize {
+  [[ 2 = $current_channels ]] && return 0;
+  check $current_make_enhanced || check $force_run || return 0;
+  check $current_make_channels || check $current_make_dts || \
+  check $force_run || \
+    return 0;
+  local file_missing=0;
+  local channel;
+  for channel in $current_layout; do
+    [[ -s "${current_base}-channel-adj-${channel,,}.wav" ]] || \
+      file_missing=1;
+  done
+  check $file_missing || check $force_run || return 0;
+  local codec_name
+  for codec_name in $full_audio_codec_list $current_ext; do
+    rm -f "${current_base}-norm.$codec_name";
+  done
+  local source_missing=0;
+  for channel in $current_layout; do
+    [[ -s "${current_base}-channel-${channel,,}.wav" ]] || \
+      source_missing=1;
+  done
+  check $source_missing || check $force_run && \
+    launch audio_channels $current_target;
+  local pid_var="${current_label}_split_pid";
+  [[ ${!pid_var} ]] && wait ${!pid_var} 2&>/dev/null;
+  unset current_stream;
+  for channel in $current_layout; do
+    local outfile;
+    local infile;
+    outfile="${current_base}-channel-adj-${channel,,}.wav";
+    [[ ! -s "$outfile" ]] || check $force_run && {
+      infile="${current_base}-channel-${channel,,}.wav";
+      build_ffmpeg_preamble "$outfile";
+      build_ffmpeg_input "$infile";
+      case ${channel^^} in
+        'FR'|'FL' )
+          filter_graph="-af $current_dyna_origin"
+          ;;
+        'FC' )
+          filter_graph="-af $current_dyna_center"
+          ;;
+        * )
+          filter_graph="-af $current_dyna_extras"
+          ;;
+      esac
+      current_title="${saved_title} Normalized ${channel^^} Channel";
+      codec_part="-c:a $wav_encode -b:a $wav_mono_bitrate";
+      build_ffmpeg_output 'wav' "$audio_only" "channel-adj-${channel,,}";
+      build_ffmpeg_command;
+      current_title="${saved_title}";
+      shared_launch "${current_title} Normalize [${channel^^}]" \
+        "${current_label}_${channel,,}_adj" bash -c "$ffmpeg_command";
+      reset_ffmpeg_data;
+    }
+  done
+  return 0;
+}
+
+function audio_remix {
+  [[ 2 = $current_channels ]] && return 0;
+  launch audio_copy_surround $current_target;
+  check $current_make_enhanced || check $force_run || return 0;
+  check $current_make_channels || check $current_make_dts || \
+  check $force_run || \
+    return 0;
+  local source_missing=0;
+  local channel;
+  for channel in $current_layout; do
+    [[ -s "${current_base}-channel-adj-${channel,,}.wav" ]] || \
+      source_missing=1;
+  done
+  check $source_missing || check $force_run && \
+    launch audio_normalize $current_target;
+  local channel_count=0;
+  unset input_list;
+  declare pid_list;
+  for channel in $current_layout; do
+    local input_pad="[$channel_count:0]";
+    pad_list+="$input_pad";
+    build_ffmpeg_input "${current_base}-channel-adj-${channel,,}.wav";
+    input_list+=" $ffmpeg_input";
+    local pid_var="${current_label}_${channel,,}_adj_pid";
+    [[ ${!pid_var} ]] && pid_list+=" ${!pid_var}";
+    (( channel_count++ ));
+  done
+  local merge_filter="-filter_complex '${pad_list} \
+    amerge=inputs=${channel_count} [CHANNELS]; \
+    [CHANNELS] ${current_mapping} [AOUT]'";
+  ac3_bitrate="$ac3_channel_bitrate";
+  aac_bitrate="$aac_channel_bitrate";
+  local pid;
+  for pid in $pid_list; do
+    wait $pid 2&>/dev/null;
+  done
+  local codec;
+  for codec in ${audio_codec_list}; do
+    local check_var="current_make_$codec"
+    check ${!check_var} && [[ ! -s "${current_base}-norm.$codec" ]] || \
+    check $force_run && {
+      build_ffmpeg_audio_encode "$codec" \
+        '[Enhanced Surround Sound]' 'norm' "$merge_filter" "[AOUT]";
+      shared_launch "${current_title} Norm ${codec^^}" \
+        "${current_label}_channel_norm_$codec" bash -c "$ffmpeg_command";
+      unset ffmpeg_output;
+    }
+  done
+  reset_ffmpeg_data;
+  return 0;
+}
+
+function audio_save_stream {
+  local current_dest="${dest_base}${1:+-$1}";
+  local current_base="${saved_base}${2:+-$2}";
+  [[ $1 =~ DTS ]] && {
+    check $current_save_dts && [[ -s "${current_base}.dts" ]] && \
+      link "$current_base.dts" "${dest_base}/${current_dest}.dts" 2>/dev/null;
+  } || {
+    check $current_save_ac3 && [[ -s "${current_base}.ac3" ]] && \
+      link "$current_base.ac3" "${dest_base}/${current_dest}.ac3" 2>/dev/null;
+    check $current_save_aac && [[ -s "${current_base}.aac" ]] && \
+      link "$current_base.aac" "${dest_base}/${current_dest}.aac" 2>/dev/null;
+  }
+  return 0;
+}
+
+function audio_set_stream {
+  launch $1 $2;
+  current_title="${saved_title}${3:+ $3}";
+  current_base="${saved_base}${4:+-$4}";
+  [[ 'audio_dts' == $1 ]] && {
+    check $current_include_dts && \
+      ffpeg_add_stream "$current_base.dts" 'audio';
+  } || {
+    check $current_include_ac3 && \
+      ffpeg_add_stream "$current_base.ac3" 'audio';
+    check $current_include_aac && \
+      ffpeg_add_stream "$current_base.aac" 'audio';
+  }
+  return 0;
+}
+
+function audio_stereo {
+  check $current_make_stereo || check $force_run || return 0;
+  local  output_pad_enhanced;
+  local  output_pad_original;
+  local  filter_enhanced;
+  local  filter_original;
+  [[ 2 = "$current_channels" ]] && {
+    current_base+='-stereo';
+    filter_enhanced="-af '${current_dyna_stereo}'";
+    filter_original=;
+  } || {
+    filter_base="-filter_complex '[0:${current_stream}]${current_mixing}[STEREO]"
+    current_base+='-downmix';
+    filter_enhanced="$filter_base;[STEREO]${current_dyna_stereo}[NORM]'";
+    output_pad_enhanced="[NORM]";
+    filter_original="$filter_base'";
+    output_pad_original="[STEREO]";
+  }
+  local audio_volume;
+  local codec_name;
+  for audio_volume in $audio_volumes; do
+    for codec_name in $audio_codec_list; do
+      audio_stereo_stream "$codec_name" "$audio_volume";
+    done
+  done
+  unset output_pad_enhanced;
+  unset output_pad_original;
+  unset filter_enhanced;
+  unset filter_original;
+  return 0;
+}
+
+function audio_stereo_stream {
+  local active_codec="${1:-ac3}";
+  local active_level="${2:-original}";
+  local codec_check="current_make_$active_codec"
+  local level_check="current_make_${active_level}";
+  local filter_var="filter_${active_level}";
+  filter_graph="${!filter_var}"
+  local pad_var="output_pad_${active_level}";
+  output_pad="${!pad_var}";
+  bitrate_var="${active_codec}_stereo_bitrate";
+  declare -g ${active_codec}_bitrate="${!bitrate_var}";
+  local base_suffix;
+  local title_suffix;
+  [[ 'enhanced' == $active_level ]] && {
+    base_suffix='norm';
+    title_suffix="[Enhanced Stereo]";
+  } || {
+    base_suffix=;
+    title_suffix="[Stereo]";
+  }
+  check ${!codec_check} && check ${!level_check} && \
+  [[ ! -s "${current_base}${base_suffix:+-$base_suffix}.${active_codec}" ]] || \
+  check $force_run && {
+    build_ffmpeg_audio_encode "$active_codec" "$title_suffix" "$base_suffix";
+    shared_launch "${current_title} $title_suffix ${active_codec^^}" \
+      "${current_label}_stereo${base_suffix:+_$base_suffix}_${active_codec}" \
+      bash -c "$ffmpeg_command";
+    reset_ffmpeg_data;
+  }
+  return 0;
+}
+
+function load_audio_settings {
+  check $current_include_aac || check $current_include_ac3 && \
+  ! check $current_include_channels && ! check $current_include_dts && \
+    declare -g current_include_stereo=1;
+  check $current_include_original || check $current_include_enhanced && \
+  ! check  $current_include_dts && ! check  $current_include_channels && \
+    declare -g current_include_stereo=1;
+  check $current_include_stereo || check $current_include_channels && \
+  ! check $current_include_aac && \
+    declare -g current_include_ac3=1;
+  check $current_include_dts || check $current_include_channels || \
+  check $current_include_stereo && ! check $current_include_original && \
+    declare -g current_include_enhanced=1;
+  check $current_save_aac || check $current_save_ac3 && \
+  ! check $current_save_channels && ! check $current_save_dts && \
+    declare -g current_save_stereo=1;
+  check  $current_save_original || check $current_save_enhanced && \
+  ! check  $current_save_dts && ! check  $current_save_channels && \
+    declare -g current_save_stereo=1;
+  check $current_save_stereo || check $current_save_channels && \
+  ! check $current_save_aac && \
+    declare -g current_save_ac3=1;
+  check $current_save_dts || check $current_save_channels || \
+  check $current_save_stereo && ! check $current_save_original && \
+    declare -g current_save_enhanced=1;
+  for check_var in ${!current_include_*}; do
+    check_suffix=${check_var##*_};
+    make_var="current_make_$check_suffix";
+    check ${!check_var} && declare -g $make_var=${!check_var};
+  done
+  for check_var in ${!current_save_*}; do
+    check_suffix=${check_var##*_};
+    make_var="current_make_$check_suffix";
+    check ${!check_var} && declare -g $make_var=${!check_var};
+  done
+  check $current_make_aac || check $current_make_ac3 && \
+  ! check $current_make_channels && ! check $current_make_dts && \
+    declare -g current_make_stereo=1;
+  check  $current_make_original || check $current_make_enhanced && \
+  ! check  $current_make_dts && ! check  $current_make_channels && \
+   declare -g current_make_stereo=1;
+  check $current_make_stereo || check $current_make_channels && \
+  ! check $current_make_aac && \
+    declare -g current_make_ac3=1;
+  check $current_make_dts || check $current_make_channels || \
+  check $current_make_stereo && ! check $current_make_original && \
+    declare -g current_make_enhanced=1;
+  check $current_make_dts && declare -g current_make_channels=1 && \
+  ! check $current_make_aac && declare -g current_make_ac3=1;
+  declare -g current_dyna_stereo="${current_dyna_stereo:-$dyna_stereo}";
+  declare -g current_dyna_origin="${current_dyna_origin:-$dyna_origin}";
+  declare -g current_dyna_center="${current_dyna_center:-$dyna_center}";
+  declare -g current_dyna_extras="${current_dyna_extras:-$dyna_extras}";
+  declare -g current_dyna_others="${current_dyna_others:-$dyna_others}";
+  case $current_channels in
+    2 ) # Stereo is not surround sound
+      ;;
+    7.1 )
+      current_mapping="${current_mapping:-$audio_mapping_71}"
+      current_layout="${current_layout:-$audio_layout_71}"
+      current_mixing="${current_mixing:-$audio_mixing_71}"
+      ;;
+    5.1 )
+      current_mapping="${current_mapping:-$audio_mapping_51}"
+      current_layout="${current_layout:-$audiot_layout_51}"
+      current_mixing="${current_mixing:-$audio_mixing_51}"
+      ;;
+    '5.1(side)' )
+      current_mapping="${current_mapping:-$audio_mapping_51_side}"
+      current_layout="${current_layout:-$audio_layout_51_side}"
+      current_mixing="${current_mixing:-$audio_mixing_51_side}"
+      ;;
+    * )
+      ;;
+  esac
+  aac_encode="${aac_codec_params:-$aac_params}";
+  aac_stereo_bitrate="${aac_stereo_bitrate:-$aac_stereo_bits}";
+  aac_channel_bitrate="${aac_channel_bitrate:-$aac_channel_bits}";
+  ac3_encode="${ac3_codec_params:-$ac3_params}";
+  ac3_stereo_bitrate="${ac3_stereo_bitrate:-$ac3_stereo_bits}";
+  ac3_channel_bitrate="${ac3_channel_bitrate:-$ac3_channel_bits}";
+  wav_encode="${wav_codec_params:-$wav_params}";
+  wav_mono_bitrate="${wav_mono_bitrate:-$wav_mono_bits}";
+  return 0;
+}
+
+function titles_add_stream {
+  check $current_include || return 0;
+  launch titles_extract $current_target;
+  local titles_ext;
+  case ${current_type,,} in
+    text|subrip|srt|ass|aas  )
+      titles_ext='ass';
+      ;;
+    dvd_sub*|vobsub )
+      titles_ext='mkv';
+      ;;
+    file )
+      title_ext="${current_source##*.}";
+      ;;
+    * )
+      return 0
+      ;;
+  esac
+  ffpeg_add_stream "${current_base}.${titles_ext}" 'titles' \
+    "${current_SDH:++hearing_impaired}"
+  return 0;
+}
+
+function titles_build {
+  local titles_codec="${1:-copy}";
+  local titles_ext="${2:-mkv}";
+  [[ ! -s "${current_base}.$titles_ext" ]] || check $force_run || \
+    return 0;
+  build_ffmpeg_preamble "${current_base}.$titles_ext";
+  codec_part="-c:0 $titles_codec";
+  build_ffmpeg_stream;
+  build_ffmpeg_output "$titles_ext" "$subtitles_only";
+  build_ffmpeg_command;
+  shared_launch "${current_title} Subtitles" \
+    "${current_label}_titles" bash -c "$ffmpeg_command";
+  reset_ffmpeg_data;
+  return 0;
+}
+
+function titles_extract {
+  case ${current_type,,} in
+    text|subrip|srt|ass|aas  )
+      titles_build "ass" "ass";
+      ;;
+    dvd_sub*|vobsub )
+      titles_build;
+      ;;
+    file )
+      local title_ext="${current_source##*.}";
+      [[ ! -s "$current_source" ]] && return 0;
+      [[ ! -s "${current_base}.$title_ext" ]] || check $force_run || \
+        return 0;
+      cp "$current_source" "${current_base}.$title_ext";
+      return 0;
+      ;;
+    * )
+      return 0
+      ;;
+  esac
+  return 0;
+}
+
+function titles_finalize {
+  check $current_save || return 0;
+  local title_ext;
+  case ${current_type,,} in
+    text|subrip|srt|ass|aas  )
+      title_ext="ass";
+      ;;
+    dvd_sub*|vobsub )
+      title_ext="mkv";
+      ;;
+    file )
+      title_ext="${current_source##*.}";
+      ;;
+    * )
+      return 0
+      ;;
+  esac
+  local title_src="${work_files}-titles-${current_label}.${title_ext}";
+  local title_dest="${dest_base}";
+  check $current_SDH && title_dest+="-HI";
+  title_dest+=".${title_ext}";
+  [[ -s "${title_src}" ]] && \
+    link "${title_src}" "${dest_base}/${title_dest}" 2>/dev/null;
+  return 0;
+}
+
+function help {
+  [[ $2 ]] && {
+    cmd_name="$2";
+    while [[ $cmd_name =~ ^- ]]; do
+    cmd_name=${cmd_name#-};
+    done
+    cmd_name="${cmd_name,,}";
+    help_cmd="${cmd_name}_help";
+    ( declare -Ff $help_cmd > /dev/null ) || {
+      echo "There is no advanced help availabe for $1 $cmd_name.";
+      return 0;
+    }
+    $help_cmd $1;
+    see_also $1 $cmd_name;
+  } || {
+    help_main $1;
+  }
+}
+
+function help_main {
+  cat <<HELP_MAIN
+
+Usage: $1 <command> [arg [arg]]
+
+Processes files in the current directory, according to the information
+in the fixvid.conf file as steps in creating a new, remuxed, video file
+from the source file(s) in the directory.
+
+Available commands are:
+
+HELP_MAIN
+  mapfile -d '' commands < <(printf '%s\0' "${!usage[@]}" | sort -z);
+  for cmd in "${commands[@]}"; do
+    printf '  %-15s %s\n' "$cmd" "${usage[$cmd]}";
+  done
+  cat <<EXTRA_HELP
+
+Addtional topics available in help are:
+   target:     How the <target> is validated and used
+   dynaudnorm: Common elements of the dynaudnorm audio filter
+   filters:    Links to FFMPEG documentation for common video filters
+   force:      (Re-)create streams, overwriting existing files
+
+Use $1 help <command|topic> for more information on each command or topic.
+
+EXTRA_HELP
+}
+
+function see_also {
+  echo "See also:"
+  local topic;
+  for topic in target dynaudnorm filters force; do
+    [[ $2 == $topic ]] ||
+      echo "    $1 help $topic";
+  done
+}
+
+function audio_help {
+  cat <<HELP_AUDIO
+
+    a [<target>]
+    audio [<target>]
+        A one-shot command to create all the audio files associated with
+        the <target> audio group. Combines the commands stereo, mix, and
+        dts into a single command. In all cases the <force> parameter is
+        ignored. May process one audio group, or all audio groups at once.
+        For more information on multiple groups, see: $1 help target.
+
+HELP_AUDIO
+}
+
+function build_help {
+  cat <<HELP_BUILD
+
+    b [<target>]
+    build [<target>]
+        A one-shot command to create all the files indicated in the
+        fixvid.conf file for the <target> video group as well as all the
+        files indicated for all audio groups and all subtitle groups. It
+        is the equivalent of using the titles, audio, and remux commands
+        in order. In all cases the <force> parameter is ignored. May
+        process one video group, or all video groups at once. For more
+        information on multiple groups, see: $1 help target.
+
+HELP_BUILD
+}
+
+function channels_help {
+  cat <<HELP_CHANNELS
+
+    channels [<target> [<force>]]
+        Create a separate WAV file for each channel of a surround sound
+        stream. This is a low-level command and is normally called as
+        needed by the mix command. May process one audio group, or all
+        audio groups at once. For more information on multiple groups,
+        see: $1 help target.
+
+HELP_CHANNELS
+}
+
+function dts_help {
+  cat <<HELP_DTS
+
+    dts [<target> [<force>]]
+        Create DTS formatted surround sound files from the AC3 or AAC
+        files previously created by the mix command. Will call the mix
+        command if the needed input files are missing.  May process one
+        audio group, or all audio groups at once. For more information
+        on multiple groups, see: $1 help target.
+
+HELP_DTS
+}
+
+function final_help {
+  cat <<HELP_FINAL
+
+    f
+    final
+    finalize
+        Create a properly named subdirectory in the working directory
+        and copy (link) all created files which are marked as _save_
+        in the fixvid.conf file into that directory using the
+        final_files setting to create a standard base name, and uses a
+        consistent name for all file types. Will not create missing
+        files, failing silently for each missing file. Ignores both the
+        <target> and <force> parameters as irrelavent, since all
+        existing and qualifying files are linked and none are created.
+
+HELP_FINAL
+}
+
+function finalize_help {
+  final_help;
+}
+
+function go_help {
+  cat <<HELP_GO
+
+    g [<target>]
+    go [<target>]
+        A one-shot command to make all audio and subtitle streams, remux
+        the <target> video and copy the proper files into the finalized
+        subdirectory. Equivalent to running the build and finalize
+        commands in sequence. Will process all subtitle groups and all
+        audio groups, but only the <target> video group. May process one
+        video group, or all video groups at once. For more information
+        on multiple groups, see: $1 help target.
+
+HELP_GO
+}
+
+function init_help {
+  cat <<HELP_INIT
+
+    init [fast]
+        Create the generic fixvid.conf file in the directory and scan
+        for all "mp4", "mkv", "avi", "aac", "ac3", "wav", and  "mp3"
+        files in the current directory and provide a filtered output
+        from ffprobe for each. The scan results are displayed, and
+        recorded in the fixvid.scan file. Included in the scan is a file
+        named "movie" without any file type or extension. This file may
+        be any of FFMPEG supported type. This file, if present, will be
+        the first one scanned, and listed at the top of the scan report.
+
+        If the [fast] parameter is non-blank, a minimalistic version of
+        the fixvid.conf file will be created. There are no comments to
+        explain the values, and only one settings group for audio,
+        video and subtitles streams is included. More groups can still
+        be added, but it will need to be completely typed by the user.
+
+HELP_INIT
+}
+
+function mix_help {
+  cat <<HELP_MIX
+
+    m [<target> [<force>]]
+    mix [<target> [<force>]]
+    remix [<target> [<force>]]
+        Process the surround sound stream <target> according to the
+        settings and requirements in the fixvid.conf file. Any
+        combination of the volume levels (original and normalized) and
+        the codecs (AC3 and AAC) are possible. Any combination that is
+        marked as _include_, _save_, or _make_ will be created. When the
+        audio group indicated by <target> is given as a 2-channel source,
+        mix will silently fail. If any normalized versions are required,
+        the original source will be split into individual WAV files,
+        normalized versions of each will also be in WAV files, and the
+        results will be remixed into a file, or files, with the required
+        codec(s). Will automatically call the low-level commands to
+        create the supporting files if needed. Does not create the DTS
+        encoded files, which are created by the dts [<target>] command.
+        May process one audio group, or all audio groups at once. For
+        more information on multiple groups, see: $1 help target.
+
+HELP_MIX
+}
+
+function normalize_help {
+  cat <<HELP_NORMALIZE
+
+    normalize [<target> [<force>]]
+        Create normalized versions of each of the separate channels made
+        by the channels command. Will call the channels command if any
+        of the original files are missing. Will only make normalized
+        versions for channels which do not have one made previously.
+        May process one audio group, or all audio groups at once. For
+        more information on multiple groups, see: $1 help target.
+
+HELP_NORMALIZE
+}
+
+function probe_help {
+  cat <<HELP_PROBE
+
+    probe <file>
+        Run ffprobe on the listed file and filter the results, showing
+        the lines pertinent to the file's duration, chapter list, and
+        each stream located in the file.
+
+HELP_PROBE
+}
+
+function remix_help {
+  mix_help $1;
+}
+
+function rebuild_help {
+  remux_help;
+}
+
+function remux_help {
+  cat <<HELP_REMUX
+
+    r [<target>]
+    remux [<target>]
+    rebuild [<target>]
+        Create video files from the files and streams identified in the
+        fixvid.conf file. Will call the appropriate commands to build
+        any of the missing streams. Can be used as a one-shot command to
+        completely run through all the needed commands to create each of
+        the streams identified in the fixvid.conf file as being included
+        in the final video file. If used as a one-shot, it is possible
+        that some of the streams which the fixvid.config file directs to
+        be made, but not included in the final file, will not be created.
+        This command will only require the commands to create the
+        versions of the streams which are flagged as being included. The
+        command may create other streams as part of the process, but
+        there is no certainty that all the streams flagged to be made
+        will be created. This command, and any which it calls, will
+        ignore the <force> parameter.  May process one video group, or
+        all video groups at once. For more information on multiple
+        groups, see: $1 help target.
+
+HELP_REMUX
+}
+
+function stereo_help {
+  cat <<HELP_STEREO
+
+    stereo [<target> [<force>]]
+        Extract the stereo sound track from the file and stream
+        identified in the fixvid.conf file as the stereo source. Applies
+        the enhancements to the stereo sound track and creates an AAC
+        and/or an AC3 file of the original and/or the enhanced tracks.
+        May process one audio group, or all audio groups at once. For
+        more information on multiple groups, see: $1 help target.
+
+HELP_STEREO
+}
+
+function subtitles_help {
+  titles_help;
+}
+
+function titles_help {
+  cat <<HELP_TITLES
+
+    t [<target> [<force>]]
+    titles [<target> [<force>]]
+    subtitles [<target> [<force>]]
+        Create subtitle files from the files and streams identified in
+        the fixvid.conf file. May process one subtitle group, or all
+        subtitle groups at once. For more information on multiple
+        groups, see: $1 help target.
+
+
+HELP_TITLES
+}
+
+function video_help {
+  cat <<HELP_VIDEO
+
+    v [<target> [<force>]]
+    video [<target> [<force>]]
+        Extract the video from the file and stream identified in the
+        fixvid.conf file. May process one video group, or all video
+        groups at once. For more information on multiple groups,
+        see: $1 help target.
+
+HELP_VIDEO
+
+}
+
+function dynaudnorm_help {
+  cat <<DYNAUDNORM
+
+dynaudnorm is the dynamic audio normalization filter in FFMPEG. It has
+the following parameters, among others, available
+
+   f:  frame-size(ms)[10-8000,500]: size of each frame for gain
+       calculations
+   g:  Gaussian filter window size(frames)[3-301(odd),31]: the "window"
+       over which gain is normalized
+   p:  peak target(%of FS)[.01-.99,.95]: the target max volume of
+       normalization.
+   m:  max-gain[1-100,10]: globally applied limit to gain applied to any
+       segment.
+   r:  RMS[0.0(disabled)-1.0]: Use RMS calculations, rather than "peak"
+       for gain factors
+   s:  compression factor[0.0(disabled)-30.0]: lower is more dynamic
+       compression, 3 seems a hard no-distortion floor.
+
+   The parameters are given in a colon ':' separated list of key=value
+   pairs. A global maximum gain of 25 with a target peak of 85% of full
+   scale using a window of 43 frames of 750ms each would be given as:
+       'dynaudnorm=m=25:p=.85:g=43:f=750'
+
+   Full documentation for dynaudnorm can be found on the FFMPEG website:
+        https://ffmpeg.org/ffmpeg-filters.html#dynaudnorm
+
+DYNAUDNORM
+}
+
+function filter_help {
+  filters_help;
+}
+
+function filters_help {
+  cat <<'HELP_FILTER'
+
+The FFMPEG documentation for video filters can be found at:
+    https://ffmpeg.org/ffmpeg-filters.html#Video-Filters
+
+For documentation on some specific, and likely, video filters go to:
+    scale:  https://ffmpeg.org/ffmpeg-filters.html#scale-1
+     crop:  https://ffmpeg.org/ffmpeg-filters.html#crop
+   setsar:  https://ffmpeg.org/ffmpeg-filters.html#setdar_002c-setsar
+       eq:  https://ffmpeg.org/ffmpeg-filters.html#eq
+
+HELP_FILTER
+}
+
+function force_help {
+  cat <<FORCE_HELP
+
+    <force>
+        The <force> parameter is available on some of the commands
+        (channels, dts, mix, normalize, stereo, titles, and video)
+        where the command will ignore existing, previously created,
+        files and make every possible combination of volume level and
+        codec which can be made with that command.
+
+        The <force> parameter is not available on the commands which
+        perform multiple commands (audio, build, go, and remux) or the
+        finalize command, which always overwrites the files anyway.
+
+        With the titles and video commands, which only create one
+        version of the file anyway, it only has the effect of causing
+        the command to overwrite any previously created file.
+
+FORCE_HELP
+}
+
+function target_help {
+  cat <<TARGET_HELP
+
+    <target>
+        Many of the commands can make multiple versions of the streams
+        if they are listed in the config file. Each version has its own
+        group of settings. All audio settings are in audio_<param>_#,
+        subtitles settings are in titles_<param>_# and video settings
+        are in video_<param>_#. For subtitles and audio streams the
+        _stream_# parameter is used to determine if that group of
+        settings is to be used, while for video streams the _codec_#
+        parameter is used to indicate an applicable group of settings.
+        Each type of stream uses its own sequence of numbers, all begin
+        with 1, and the list must be sequential, with no gaps. If group
+        2 is not enabled, any other groups, from 3 and above, will not
+        be used, even if they are defined.
+
+        Commands with the optional argument of [<target>] accept a
+        number for the group of settings to process. If the number is a
+        valid choice, as determined above, then only that group will be
+        processed, while all others will be ignored. If the number is
+        not supplied, or is zero, all groups will be processed in one
+        run of the command. If the number supplied is not in the range
+        of valid numbers, the command will terminate without processing
+        any stream.
+
+        As the standard for video files is to only have one primary
+        stream for the video, with the possibility of multiple streams
+        for the audio and subtitles, each group of settings for video
+        streams also indicates a version of the final video file(s) to
+        create. Aside from each having one version of the video, all the
+        final video files will have the same set of audio and subtitles.
+
+TARGET_HELP
+}
+
+function target_num_help {
+  target_help
+}
+
+function make_minimal {
+tee 'fixvid.conf' << 'EOMINIMAL' >/dev/null
+
+########################################################################
+#                                                                      #
+#  fixvid.conf: configuration settings for the creation of the files   #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+main_title="Name of the Movie";
+main_year=2018;
+final_files="The_Movie_Name";
+main_lang="eng";
+work_files="my_video";
+main_source='movie';
+timestamp="$(date --utc +%Y-%m-%dT%H:%M:%SZ)";
+#= chapter_source='movie';
+
+max_parallel=4;
+enable_nvidia=true;
+#= hide_stats=1;
+
+video_stream_1=0;
+video_label_1="1080p";
+video_codec_1='HEVC';
+#= video_codec_label_1='HEVC';
+
+video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main -tier high';
+#+ video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main10 -tier high';
+
+#= video_equalizer_1='eq=contrast=1.12:brightness=0.18';
+#= video_adjust_1='scale=1920x796,setsar=1/1';
+#= video_adjust_1='crop=1920:754,scale=1280x504,setsar=1/1';
+#= video_complex_1=1;
+video_save_1=1;
+
+#= titles_source_1='movie';
+titles_stream_1=;
+#= titles_label_1='titles';
+titles_lang_1='eng';
+titles_title_1='Standard subtitles';
+titles_type_1='dvd_subtitle';
+titles_include_1=1;
+#= titles_SDH_1=1;
+#= titles_save_1=1;
+
+#= audio_source_1='movie';
+audio_stream_1=1;
+audio_label_1='sound';
+audio_title_1='';
+audio_lang_1='eng';
+audio_channels_1='5.1(side)';
+
+audio_include_enhanced_1=1;
+#= audio_include_original_1=1;
+#= audio_include_stereo_1=1;
+#= audio_include_channels_1=1;
+#= audio_include_dts_1=1;
+#= audio_include_ac3_1=1;
+#= audio_include_aac_1=1;
+
+#= audio_save_enhanced_1=1;
+audio_save_original_1=1;
+#= audio_save_stereo_1=1;
+#= audio_save_channels_1=1;
+#= audio_save_dts_1=1;
+#= audio_save_ac3_1=1;
+#= audio_save_aac_1=1;
+
+#= dyna_stereo='dynaudnorm=f=66:g=17:p=0.95:m=50:s=20';
+#= dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
+#= dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
+#= dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
+#= dyna_others='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
+
+EOMINIMAL
+}
+
+function main_config {
+tee 'fixvid.conf' << 'EOMAIN' >/dev/null
+
+########################################################################
+#                                                                      #
+#  fixvid.conf: configuration settings for the creation of the files   #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+#                        Final Product Settings                        #
+#                                                                      #
+########################################################################
+
+#  Set to make the system work "as-is" but not very informative
+
+#  The name of the file which has most, if not all, of the streams to
+#+ to be converted in the processing
+main_source='movie';
+
+
+#  Name of the video that is stored in the meta data of the files.
+#+ To use a double quote in the title use triple-escape, \\\"
+main_title="Name of the Movie";
+
+#  Year the video was produced/released
+main_year=2018;
+
+#  The language for the video, and the default language for included
+#+ audio and subtitle streams when not given individually.
+main_lang="eng";
+
+#  Name used as the prefix for work files, use shell-safe names
+work_files="my_video";
+
+#  Name used as the prefix for the final product files, stay shell-safe
+final_files="The_Movie_Name";
+
+#  The "time" when this was all collected and remuxed.
+#+ Use the format YYYY-MM-DDTHH:MM:SS to place a custom timestamp in the
+#+ created video file, and streams which support the timestamp.
+#+ This not affect the timestamp on the files within the file system.
+timestamp="$(date --utc +%Y-%m-%dT%H:%M:%SZ)";
+
+########################################################################
+#                                                                      #
+#                       Process Control Settings                       #
+#                                                                      #
+########################################################################
+
+#  How many parallel processes to run, when using parallelism
+#+ Set to 1 to disable parallel processing, i.e. 1 at a time
+max_parallel=4;
+
+#  Flag to allow converting to the nVidia encoders
+enable_nvidia=true;
+
+#  Flag to not show the FFMPEG progress line during stream creation
+#= hide_stats=1;
+
+########################################################################
+#                                                                      #
+#                            Chapter Titles                            #
+#                                                                      #
+########################################################################
+
+#  Chapter titles are a special case. Chapter information is embedded in
+#+ the container rather than the stream(s). The process of creating the
+#+ component files is designed to strip out all the meta data from the
+#+ streams, and the chapter titles are "lost" in the process. So many of
+#+ the videos encountered so far have had meaningless 'title' for the
+#+ chapters. Either the chapter number, or the chapter start time, is
+#+ the common 'title,' and loosing those is of no consequence.
+#+ Attempting to preserve the title in the processing turns out to be
+#+ more work than to just add them back into the final product, when
+#+ they exist.
+
+#  Name of the file that has useful chapter data. Leave commented if none
+#= chapter_source='movie';
+
+EOMAIN
+}
+
+function video_config {
+tee -a 'fixvid.conf' << 'EOVIDEO' >/dev/null
+
+########################################################################
+#                                                                      #
+#                       Video component settings                       #
+#                                                                      #
+########################################################################
+
+#  Which stream to us as the video source
+video_stream_1=0;
+
+#  An extra label for the video extract file to separate one extraction
+#+ from the rest. Resolution is a common choice here.
+video_label_1="1080p";
+
+#  The codec to use in the final product, HEVC or H264 for me
+video_codec_1='HEVC';
+
+#  The label to use instead of the codec in final file names, if blank
+#+ or not set the codec is used, if non-blank, will override the codec
+#+ name for finalized file names.
+#= video_codec_label_1='HEVC';
+
+#  The extra parameters to pass to the video encoder
+#+ This parameter is expected to exist unless the stream is copied
+
+#  HEVC (nVidia) uses these, with adjustments as needed
+video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main -tier high';
+#+ video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main10 -tier high';
+#+ Add -pix_fmt to drop from 10-bit to 8-bit
+#= video_params_1='-preset slow -2pass 1 -rc constqp -qp 28 -rc-lookahead 32 -level 5.1 -profile:v main -tier high -pix_fmt yuv420p';
+
+#  H264 (nVidia) uses these, with adjustments as needed
+#= video_params_1="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 5.1 -profile:v high";
+#+ Add -pix_fmt to drop from 10-bit to 8-bit
+#= video_params_1="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 5.1 -profile:v high" -pix_fmt yuv420p';
+
+#  Equalizer adjustments to the video. Options include:
+#+     contrast, float: -2.0 to 2.0, default 1
+#+     brightness, float: -1.0 to 1.0, default 0
+#+     saturation, float: 0.0 to 3.0, default 1
+#+     gamma, float: 0.1 to 10.0, default 1
+#+     gamma_r, (red)float: 0.1 to 10.0, default 1
+#+     gamma_g, (green)float: 0.1 to 10.0, default 1
+#+     gamma_b, (blue)float: 0.1 to 10.0, default 1
+#+     gamma_weight, float: 0.0 to 1.0, default 1, (level of effect)
+#+ This paramater is optional, uncomment if needed
+#= video_equalizer_1='eq=contrast=1.12:brightness=0.18';
+
+#  Adjustments to the video's resolution, size, aspect ratio, etc., and
+#+ any other filtering needed. It can be simple, as passed to the -vf of
+#+ ffmpeg, or complex, as part of a complete fiter graph for ffmpeg's
+#+ -filter_complex. If the complex version is used the filter graph must
+#+ have, exactly one input pad, [VIN] and exactly one output pad [VOUT],
+#+ and the video_complex_1 must be set. For the simple versions there are
+#+ no input/output pads, and video_complex_1 must be commented out. There
+#+ should be no single quotes used in either version of the filter
+#+ This parameter is optional, uncomment if needed
+#= video_adjust_1='scale=1920x796,setsar=1/1';
+#= video_adjust_1='crop=1920:754,scale=1280x504,setsar=1/1';
+#= video_adjust_1='[VIN] scale=1920x796,setsar=1/1 [VOUT]';
+#= video_adjust_1='[VIN] crop=1920:754 [CROP];[CROP] scale=1280x504,setsar=1/1 [VOUT]';
+
+#  Whether or not to use the -filter_complex version in ffmpeg. 1 is use
+#+ complex filtering, 0, null, empty string, or undefined in use simple
+#+ filtering, as in -vf ....
+#+ This parameter is optional, uncomment if needed, see above
+#= video_complex_1=1;
+
+#  Whether or not to save a copy of this stream during the finalization
+#= video_save_1=1;
+
+#  A second, third, etc. group of settings can be used by repeating the
+#+ set of variables above, replacing the digit "1" with "2", and so on.
+#+ The program will look for each, in sequence, and stop on the first one
+#+ not found: group 3 will be ignored unless there is a group 2, etc.
+#= video_stream_2=0;
+#= video_label_2='1080p';
+#= video_codec_2='H264';
+#= video_codec_label_2='HEVC';
+#= video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high";
+#= Add -pix_fmt to drop from 10-bit to 8-bit
+#= video_params_2="-preset slow -2pass 1 -rc constqp -qp 22 -rc-lookahead 32 -level 4.1 -profile:v high -pix_fmt yuv420p";
+#= video_equalizer_2='';
+#= video_adjust_2='';
+#= video_complex_2=1;
+#= video_save_2=1;
+
+EOVIDEO
+}
+
+function audio_config {
+tee -a 'fixvid.conf' << 'EOAUDIO' >/dev/null
+
+########################################################################
+#                                                                      #
+#                       Audio component settings                       #
+#                                                                      #
+########################################################################
+#  File name and index that has the stream of the audio source
+#= audio_source_1='movie';
+audio_stream_1=1;
+
+#  The label to use on extracted files for this audio source
+audio_label_1='sound';
+
+#  The title, internal to the Matroska containter, to apply
+audio_title_1='';
+
+#  The language this audio stream is in, if different than the video
+audio_lang_1='eng';
+
+#  The channels in this stream. I.e. 5.1, 7.1, '5.1(side)', or 2
+audio_channels_1='5.1(side)';
+
+#  If the normal layout and channel mapping for the audio channel above
+#+    then these allow for creating a unique setup.
+#= audio_layout_1='fl fr fc lf sl sr';
+#= audio_mapping_1='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+
+#  How to mix the channel values to create a stereo stream from original
+#+ surround sound stream
+#= audio_mixing_1='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
+
+#  The dynaudnorm value to apply to the different channels when remixing
+#+     the surround sound or enhancing the stereo stream. Not needed if
+#+     the general version applies to this stream
+#= audio_dyna_stereo_1='';
+#= audio_dyna_center_1='';
+#= audio_dyna_origin_1='';
+#= audio_dyna_extras_1='';
+#= audio_dyna_others_1='';
+
+#  Include the normalized or original volume versions of created streams
+#+ in the final product. Either of both can be included, if nothing is
+#+ selected, the normalized versions will be included by default. Both
+#+ are possible.
+#= audio_include_enhanced_1=1;
+#= audio_include_original_1=1;
+
+#  Select the versions of the audio to include in the final product. By
+#+ default the stereo version is selected. Multiple selections are valid
+#= audio_include_stereo_1=1;
+#= audio_include_channels_1=1;
+#= audio_include_dts_1=1;
+
+#  Select the codec to use for included streams. By default AC3 is used.
+#+ More than one is allowed
+#= audio_include_ac3_1=1;
+#= audio_include_aac_1=1;
+#= audio_include_custom_1=1;
+
+#  Which versions of audio streams to build, even when not included in
+#+ the final product.
+#= audio_make_enhanced_1=1;
+#= audio_make_original_1=1;
+#= audio_make_stereo_1=1;
+#= audio_make_channels_1=1;
+#= audio_make_dts_1=1;
+#= audio_make_ac3_1=1;
+#= audio_make_aac_1=1;
+#= audio_make_custom_1=1;
+
+#  Which versions of audio streams to save during the finalization
+#+ the final product.
+#= audio_save_enhanced_1=1;
+#= audio_save_original_1=1;
+#= audio_save_stereo_1=1;
+#= audio_save_channels_1=1;
+#= audio_save_dts_1=1;
+#= audio_save_ac3_1=1;
+#= audio_save_aac_1=1;
+#= audio_save_custom_1=1;
+
+# ########   CUSTOM CODEC USE
+#  The information needed to build some custom codec stream, if needed.
+#+ The system will only handle one custom codec.
+#+ The complete ffmpeg codec spec with needed options.
+#+ Everything after '-c:a'
+#= audio_codec_1='';
+#
+#  The filtering used in processing the sound. Can either be a simple
+#+ filter, -af ..., or a complex filter, -filter_complex '....' The
+#+ presence of anything in the audio_complex_# setting will cause the
+#+ simple filter to be ignored. In either case, the dynaudnorm filter
+#+ is appended, as needed, to the filter.
+
+#  If needed the ffmpeg portion after the '-af'
+#= audio_filter_1='';
+
+#  When used, the complex filter graph MUST start with an input pad of
+#+ [AIN] and end with an output pad of [AOUT]
+#= audio_complex_1=''
+
+#  The extension to apply to file names with this codec.
+#= audio_ext_1='';
+# ########
+
+#  A second, third, etc. group of settings can be used by repeating the
+#+ set of variables above, replacing the digit "1" with "2", and so on.
+#+ The program will look for each, in sequence, and stop on the first
+#+ one not found: group 3 will be ignored unless there is a group 2,
+#+ etc. The audio_stream_# setting is the key for whether or not the
+#+ group of settings will be applied. The audio_channels_# needs to be
+#+ set and the audio_label_# should be filled.
+
+#= audio_source_2='movie';
+#= audio_stream_2=1;
+#= audio_label_2='';
+#= audio_title_2='';
+#= audio_lang_2='eng';
+#= audio_channels_2=2;
+#= audio_layout_2='';
+#= audio_mapping_2='';
+#= audio_mixing_2='';
+#= audio_dyna_stereo_2='';
+#= audio_dyna_center_2='';
+#= audio_dyna_origin_2='';
+#= audio_dyna_extras_2='';
+#= audio_dyna_others_2='';
+#= audio_include_enhanced_2=1;
+#= audio_include_original_2=1;
+#= audio_include_stereo_2=1;
+#= audio_include_channels_2=1;
+#= audio_include_dts_2=1;
+#= audio_include_ac3_2=1;
+#= audio_include_aac_2=1;
+#= audio_include_custom_2=1;
+#= audio_make_original_2=1;
+#= audio_make_enhanced_2=1;
+#= audio_make_stereo_1=1;
+#= audio_make_channels_2=1;
+#= audio_make_dts_2=1;
+#= audio_make_ac3_2=1;
+#= audio_make_aac_2=1;
+#= audio_make_custom_2=1;
+#= audio_save_enhanced_2=1;
+#= audio_save_original_2=1;
+#= audio_save_stereo_2=1;
+#= audio_save_channels_2=1;
+#= audio_save_dts_2=1;
+#= audio_save_ac3_2=1;
+#= audio_save_aac_2=1;
+#= audio_save_custom_2=1;
+#= audio_codec_2='';
+#= audio_filter_2='';
+#= audio_complex_2=''
+#= audio_ext_2='';
+
+
+#  SETTINGS for encoding the different audio codecs.
+######################################
+#  The default values shown will be used if left commented or blank
+
+#= aac_stereo_bitrate='128k';
+#= aac_channel_bitrate='420k';
+#= ac3_stereo_bitrate='192k';
+#= ac3_channel_bitrate='640k';
+#= wav_mono_bitrate='384k';
+
+#= aac_codec_params='ac3 -b:a 192k';
+#= ac3_codec_params='libfdk_aac -profile:a aac_he -b:a 128k';
+#= wav_codec_params='pcm_s16le -b:a 384k';
+
+# SETTINGS for standard surround sound (defaults shown)
+######################################
+
+### Use for 7.1 surround sound
+# audio_layout_71='fl fr fc lf bl br sl sr';
+# audio_mapping_71='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR|6-SL|7-SR:7.1';
+# audio_mixing_71='pan=stereo|FL < 1.7*FC + 0.7*FL + 0.5*BL + 0.6*SL|FR < 1.7*FC + 0.7*FR + 0.5*BR + 0.6*SR';
+
+### Use for 5.1 surround sound
+# audio_layout_51='fl fr fc lf bl br';
+# audio_mapping_51='channelmap=0-FL|1-FR|2-FC|3-LFE|4-BL|5-BR:5.1';
+# audio_mixing_51='pan=stereo|FL < 1.7*FC + 0.6*FL + 0.5*BL|FR < 1.7*FC + 0.6*FR + 0.5*BR';
+
+### Use for 5.1(side) surround sound
+# audio_layout_51_side='fl fr fc lf sl sr';
+# audio_mapping_51_side='channelmap=0-FL|1-FR|2-FC|3-LFE|4-SL|5-SR:5.1(side)';
+# audio_mixing_51_side='pan=stereo|FL < 1.7*FC + 0.5*FL + 0.6*SL|FR < 1.7*FC + 0.5*FR + 0.6*SR';
+
+#  SETTINGS for dynaudnorm filter
+#################################
+#+ Defualt values given, uncomment and change as needed
+#+
+#+ Used on stereo streams
+#= dyna_stereo='dynaudnorm=f=66:g=17:p=0.95:m=50:s=20';
+#+
+#+ Used on the 'Center' channel of surround sound streams
+#= dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
+#+
+#+ Used on the main Left and Right channels
+#= dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
+#+
+#+ Used for the remaining channels in surround sound streams
+#= dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
+#+
+#+ Not used but always available. For future use in new audio commands
+#= dyna_others='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
+
+EOAUDIO
+}
+
+function titles_config {
+tee -a 'fixvid.conf' << 'EOtitles' >/dev/null
+
+########################################################################
+#                                                                      #
+#                      Subtitle component settings                     #
+#                                                                      #
+########################################################################
+
+#
+#  File that has the subtitles to use as the final subtitle stream
+#= titles_source_1='movie';
+titles_stream_1=;
+
+#  The label used in the filename to separate one set of subtitles from
+#+ any others.
+#+ For text-based subtitles, will also be used as the suffix for the
+#+ final product as the generated subtitles are saved in external ASS
+#+ and SRT files for use in players which need them. File name will be
+#+ something like:
+#+       The_Movie_Name-CHI.srt
+#+ for the case of titles_label set to CHI.
+#= titles_label_1='titles';
+
+#  The 3-letter language code for the language the subtitles are in
+titles_lang_1='eng';
+
+#  The title of the subtitles, as shown by most media players when the
+#+ user selects subtitles from the menu
+titles_title_1='Standard subtitles';
+#  What type of subtitles the souce file contains. 'text' is for SRT,
+#+ AAS, and ASS. 'dvd_subtitle' or 'vobsub' are for DVD subtitles.
+#+ 'file' is for a file that is not processed before being included or
+#+ saved.
+titles_type_1='dvd_subtitle';
+#  Are these subtitles to be included in the final product video?
+#+ Leave commented to prevent them from being included.
+titles_include_1=1;
+
+#  Setting to show that this is a 'Hearing-Impaired' subtitle stream.
+#+ Not required, but having it set will allow the stream to be marked as
+#+ Hearing-Impaired in the final product in the event that a player is
+#+ set up to always choose such subtitles over other defaults.
+#= titles_SDH_1=1;
+
+#  Whether or not to save a copy of this stream during the finalization
+#= titles_save_1=1;
+
+#  Additional sets of subtitles may be created by using increasing
+#+ numbers for each set of parameters. All parameters are needed for the
+#+ system to create the subtitles described.
+#= titles_source_2='movie.mkv';
+#= titles_stream_2=3;
+#= titles_label_2='DEFAULT';
+#= titles_title_2='Standard Subtitles';
+#= titles_type_2='text';
+#= titles_include_2=1;
+#= titles_SDH_2=1;
+#= titles_save_2=1;
+
+EOtitles
+}
+
+[[ -s fixvid.conf ]] && source fixvid.conf;
+
+function no_command {
+  cat <<NOCMD | cat;
+
+    No $(basename $0) command given.
+
+NOCMD
+  help_main;
+  exit;
+}
+
+function bad_command {
+  cat <<BADCMD | cat;
+
+    $1 is not a valid $(basename $0) command.
+
+BADCMD
+  help_main;
+  exit;
+}
+
+echo "";
+echo "FixVid version $fixvid_version Copyright (c) 2018, 2019 Chindraba - All Rights Reserved";
+echo "";
+
+[[ $1 ]] || no_command;
+
+command_check=$1;
+while [[ $command_check =~ ^- ]]; do
+  command_check=${command_check#-};
+done
+command_target=$2;
+force_run=${3:+1};
+for prefix in audio titles video; do
+  load_limit $prefix;
+done
+case "${command_check,,}" in
+  a|audio )
+    unset force_run;
+    process_group audio_stereo "$command_target";
+    process_group audio_remix "$command_target";
+    sleep 1;
+    process_group audio_dts "$command_target";
+    ;;
+  b|build )
+    unset force_run;
+    process_group titles_extract 0;
+    process_group audio_stereo 0;
+    process_group audio_remix 0;
+    sleep 1;
+    process_group audio_dts 0;
+    sleep 1;
+    process_group video_remux "$command_target";
+    ;;
+  channels )
+    process_group audio_channels "$command_target";
+    ;;
+  d|dts )
+    process_group audio_dts "$command_target";
+    ;;
+  f|final|finalize )
+    unset force_run;
+    dest_base="${final_files}-${main_year}";
+    mkdir -p "${dest_base}";
+    process_group titles_finalize 0;
+    process_group audio_finalize 0;
+    process_group video_finalize 0;
+    ;;
+  g|go )
+    unset force_run;
+    process_group titles_extract 0;
+    process_group audio_stereo 0;
+    process_group audio_remix 0;
+    sleep 1;
+    process_group audio_dts 0;
+    sleep 1;
+    process_group video_remux "$command_target";
+    dest_base="${final_files}-${main_year}";
+    mkdir -p "${dest_base}";
+    process_group titles_finalize 0;
+    process_group audio_finalize 0;
+    process_group video_finalize 0;
+  ;;
+  h|help )
+    help $(basename $0) "$command_target";
+    ;;
+  i|init )
+    init_dir "$command_target";
+    ;;
+  m|mix|remix )
+    process_group audio_remix "$command_target";
+    ;;
+  norm|normalize )
+    process_group audio_stereo "$command_target";
+    process_group audio_normalize "$command_target";
+    ;;
+  p|probe )
+    probe_file  "$command_target";
+    ;;
+  r|remux|rebuild )
+    unset force_run;
+    process_group video_remux "$command_target";
+    ;;
+  s|stereo )
+    process_group audio_stereo "$command_target";
+    ;;
+  t|titles|subtitles )
+    process_group titles_extract "$command_target";
+    ;;
+  v|video )
+    process_group video_extract "$command_target";
+    ;;
+  ver|version )
+    ;;
+  * )
+    bad_command $command_check
+    ;;
+esac
+wait
+echo "";

@@ -1,5 +1,3 @@
-#!/bin/bash
-
 ########################################################################
 #                                                                      #
 #  helpers: functions and settings common to multiple commands or      #
@@ -32,7 +30,6 @@
 #                                                                      #
 ########################################################################
 
-declare -A usage;
 stack_num=0;
 
 source "$fixvid_dir/audio";
@@ -40,7 +37,26 @@ source "$fixvid_dir/help";
 source "$fixvid_dir/titles";
 source "$fixvid_dir/video";
 
-#  General processing functions
+control_fields="base limit list prefix target all continue process";
+scan_extensions='mp4 mkv avi aac ac3 wav mp3';
+ffmpeg_variables="ffmpeg_command ffmpeg_preamble ffmpeg_input \
+  input_list meta_filter filter_graph output_pad codec_part \
+  stream_meta ffmpeg_stream stream_list file_meta ffmpeg_output";
+
+# Create some text shortcuts and functions to use later.
+#
+
+# ffmpeg to ignore input timestamps, and force creation of new ones
+input_flags="-fflags +igndts";
+output_flags="-fflags +genpts";
+# ffmpeg to leverage the multi-threading of the CPU, for aware libraries
+use_threads="-threads 0";
+# ffmpeg to strip the metadata from the input file, except chapter times
+strip_meta="-map_metadata -1";
+# ffmpeg to strip the metadata from the input file, including chapter times
+strip_chapters="-map_chapters -1";
+force_block=1;
+force_stats=1;
 
 function cache_settings {
   [[ $current_prefix ]] || return 0;
@@ -68,17 +84,21 @@ function clear_settings {
 }
 
 function init_dir {
-  local section;
-  [[ -s fixvid.conf ]] || for section in main video titles audio; do
-    config="${section}_config";
-    $config;
-  done
+  [[ $1 ]] && {
+    [[ -s fixvid.conf-minimal ]] || make_minimal
+  } || {
+    local section;
+    [[ -s fixvid.conf ]] || for section in main video titles audio; do
+      config="${section}_config";
+      $config;
+    done
+  }
   rm -f fixvid.scan;
   if [[ -s "movie" ]]; then
     echo "";
-    echo "********************************************************************************" | tee -a "fixvid.scan";
+    echo "*********************************" | tee -a "fixvid.scan";
     echo "    Reading movie:" | tee "fixvid.scan";
-    echo "--------------------------------------------------------------------------------" | tee -a "fixvid.scan";
+    echo "---------------------------------" | tee -a "fixvid.scan";
     probe_file "movie" | tee -a "fixvid.scan";
     echo "" | tee -a "fixvid.scan";
     echo "" | tee -a "fixvid.scan";
@@ -89,9 +109,9 @@ function init_dir {
     for filename in *.$file_type; do
       if [ -s "$filename" ]; then
         echo "";
-        echo "********************************************************************************" | tee -a "fixvid.scan";
+        echo "*********************************" | tee -a "fixvid.scan";
         echo "    Reading $filename:" | tee -a "fixvid.scan";
-        echo "--------------------------------------------------------------------------------" | tee -a "fixvid.scan";
+        echo "---------------------------------" | tee -a "fixvid.scan";
         probe_file "$filename" | tee -a "fixvid.scan";
         echo "" | tee -a "fixvid.scan";
         echo "" | tee -a "fixvid.scan";
@@ -146,9 +166,9 @@ function load_settings {
     var="${current_prefix}_${field}_${current_target}";
     declare -g current_${field}="${!var}";
   done
-  declare -g current_source="${current_source:-$main_source}"
-  declare -g current_lang="${current_lang:-$main_lang}"
-  declare -g current_label="${current_label:-${current_prefix}-${current_target}}"
+  declare -g current_source="${current_source:-$main_source}";
+  declare -g current_lang="${current_lang:-$main_lang}";
+  declare -g current_label="${current_label:-${current_prefix}-${current_target}}";
   declare -g current_title="${current_title:-$main_title}"
   [[ 'audio' = $current_prefix ]] && load_audio_settings;
   return 0;
@@ -157,7 +177,9 @@ function load_settings {
 function probe_file {
   local check_file=$1;
   [[ -s "$check_file" ]] || return 0;
-  ffprobe "$check_file" 2>&1 | grep -A 2 -E '^\s*(Chapter|Duration|Stream)' | grep -v '^--';
+  ffprobe "$check_file" 2>&1 | \
+    grep -A 2 -E '^\s*(Chapter|Duration|Stream)' | \
+    grep -v '^--';
   return 0;
 }
 
@@ -167,7 +189,8 @@ function process_group {
   load_settings "${1%%_*}" "${2:-0}";
   [[ 0 -eq ${2:-0} ]] && current_all=1 || unset current_all;
   current_process="$1";
-  [[ $current_target -lt $current_limit ]] && current_continue=1 || unset current_continue;
+  [[ $current_target -lt $current_limit ]] && current_continue=1 || \
+    unset current_continue;
   while check $current_continue; do
     launch $current_process $current_target $3;
     (( current_target++ ));
@@ -293,13 +316,14 @@ function build_ffmpeg_input {
 
 function build_ffmpeg_output {
   [[ $file_meta ]] || build_file_meta;
-  ffmpeg_output="$file_meta $use_threads $output_flags $2\
+  ffmpeg_output="$file_meta $use_threads $output_flags $2 \
     ${current_base}${3:+-$3}.${1:-mkv}"
   return 0;
 }
 
 function build_ffmpeg_preamble {
-  ffmpeg_preamble="FFREPORT=file='fixvid-$1.log':level=40 ffmpeg -hide_banner -y -loglevel error";
+  ffmpeg_preamble="FFREPORT=file='fixvid-$1.log':level=40 \
+    ffmpeg -hide_banner -y -loglevel error";
   check $2 || \
   ! check $hide_stats && \
     ffmpeg_preamble+=" -stats";
@@ -372,27 +396,6 @@ function ffpeg_add_stream {
   return 0;
 }
 
-control_fields="base limit list prefix target all continue process";
-scan_extensions='mp4 mkv avi aac ac3 wav mp3';
-ffmpeg_variables="ffmpeg_command ffmpeg_preamble ffmpeg_input \
-  input_list meta_filter filter_graph output_pad codec_part \
-  stream_meta ffmpeg_stream stream_list file_meta ffmpeg_output";
-
-# Create some text shortcuts and functions to use later.
-#
-
-# ffmpeg to ignore input timestamps, and force creation of new ones
-input_flags="-fflags +igndts";
-output_flags="-fflags +genpts";
-# ffmpeg to leverage the multi-threading of the CPU, for aware libraries
-use_threads="-threads 0";
-# ffmpeg to strip the metadata from the input file, except chapter times
-strip_meta="-map_metadata -1";
-# ffmpeg to strip the metadata from the input file, including chapter times
-strip_chapters="-map_chapters -1";
-force_block=1;
-force_stats=1;
-
 function main_config {
 tee 'fixvid.conf' << 'EOMAIN' >/dev/null
 
@@ -457,6 +460,9 @@ work_files="my_video";
 final_files="The_Movie_Name";
 
 #  The "time" when this was all collected and remuxed.
+#+ Use the format YYYY-MM-DDTHH:MM:SS to place a custom timestamp in the
+#+ created video file, and streams which support the timestamp.
+#+ This not affect the timestamp on the files within the file system.
 timestamp="$(date --utc +%Y-%m-%dT%H:%M:%SZ)";
 
 ########################################################################
@@ -499,3 +505,105 @@ EOMAIN
 }
 
 
+
+function make_minimal {
+tee 'fixvid.conf' << 'EOMINIMAL' >/dev/null
+
+########################################################################
+#                                                                      #
+#  fixvid.conf: configuration settings for the creation of the files   #
+#                                                                      #
+#  This file is part of FixVid, a system to semi-automatically modify  #
+#  and re-encode video files to create an acceptable version for a     #
+#  standardized collection or library of videos.                       #
+#                                                                      #
+#  Copyright © 2018, 2019  Ronald Lamoreaux <code@chindraba.work>      #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  FixVid is free software; you can redistribute it and/or             #
+#  modify it under the terms of the GNU General Public License,        #
+#  version 2 only, as published by the Free Software Foundation.       #
+#                                                                      #
+#  FixVid is distributed in the hope that it will be useful,           #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
+#  GNU General Public License for more details.                        #
+#                                                                      #
+#  You should have received a copy of the GNU General Public License   #
+#  along with this program; if not, write to the                       #
+#        Free Software Foundation, Inc.                                #
+#        51 Franklin Street                                            #
+#        Fifth Floor                                                   #
+#        Boston, MA  02110-1301                                        #
+#        USA.                                                          #
+#                                                                      #
+########################################################################
+
+main_title="Name of the Movie";
+main_year=2018;
+final_files="The_Movie_Name";
+main_lang="eng";
+work_files="my_video";
+main_source='movie';
+timestamp="$(date --utc +%Y-%m-%dT%H:%M:%SZ)";
+#= chapter_source='movie';
+
+max_parallel=4;
+enable_nvidia=true;
+#= hide_stats=1;
+
+video_stream_1=0;
+video_label_1="1080p";
+video_codec_1='HEVC';
+#= video_codec_label_1='HEVC';
+
+video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main -tier high';
+#+ video_params_1='-b:v 2400K -maxrate:v 2800K -preset slow -2pass 1 -rc vbr_hq -rc-lookahead 32 -level 5.1 -profile:v main10 -tier high';
+
+#= video_equalizer_1='eq=contrast=1.12:brightness=0.18';
+#= video_adjust_1='scale=1920x796,setsar=1/1';
+#= video_adjust_1='crop=1920:754,scale=1280x504,setsar=1/1';
+#= video_complex_1=1;
+video_save_1=1;
+
+#= titles_source_1='movie';
+titles_stream_1=;
+#= titles_label_1='titles';
+titles_lang_1='eng';
+titles_title_1='Standard subtitles';
+titles_type_1='dvd_subtitle';
+titles_include_1=1;
+#= titles_SDH_1=1;
+#= titles_save_1=1;
+
+#= audio_source_1='movie';
+audio_stream_1=1;
+audio_label_1='sound';
+audio_title_1='';
+audio_lang_1='eng';
+audio_channels_1='5.1(side)';
+
+audio_include_enhanced_1=1;
+#= audio_include_original_1=1;
+#= audio_include_stereo_1=1;
+#= audio_include_channels_1=1;
+#= audio_include_dts_1=1;
+#= audio_include_ac3_1=1;
+#= audio_include_aac_1=1;
+
+#= audio_save_enhanced_1=1;
+audio_save_original_1=1;
+#= audio_save_stereo_1=1;
+#= audio_save_channels_1=1;
+#= audio_save_dts_1=1;
+#= audio_save_ac3_1=1;
+#= audio_save_aac_1=1;
+
+#= dyna_stereo='dynaudnorm=f=66:g=17:p=0.95:m=50:s=20';
+#= dyna_center='dynaudnorm=f=100:g=13:p=0.97:m=15:s=20';
+#= dyna_origin='dynaudnorm=f=250:g=23:p=0.89:m=15:s=20';
+#= dyna_extras='dynaudnorm=f=500:g=31:p=0.80:m=15:s=20';
+#= dyna_others='dynaudnorm=f=300:g=23:p=0.95:m=30:s=20';
+
+EOMINIMAL
+}
