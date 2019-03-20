@@ -236,6 +236,8 @@ The `<force>` parameter is not available on the commands which perform multiple 
 
 With the `titles` and `video` commands, which only create one version of the file anyway, it only has the effect of causing the command to overwrite any previously created file.
 
+[TOP](#usage)
+
 ## Notes
 
 Once the `fixvid.conf` file has been edited with the information about the video file and the streams to process and include, a sensible process would to first use the `video` command, which is the longest running part of the process. Once the video stream has been extracted, and processed, it can be reviewed to determine if changes are needed to the parameters to make it fit the desired file size, or have the quality desired. If the new version does not meet with approval, adjust the settings, delete the file, and re-run the `video` command.

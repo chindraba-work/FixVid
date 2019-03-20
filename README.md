@@ -9,7 +9,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
   - [Synopsis](#synopsis)
-  - [Details](#details)
+  - [Details](#command-details)
 - [Copyright and License](#copyright-and-license)
 
 

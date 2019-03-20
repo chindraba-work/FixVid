@@ -4,6 +4,7 @@ Changelog
 
 v1.0.0
 
+    - Add option for a minimalistic version of fixvid.conf
     - Fine tune logic for selecting which versions of the audio stream
       need to be made.
     - Add functions for creating the exportable file set
