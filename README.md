@@ -6,6 +6,7 @@
 - [Requirements](#requirements)
   - [System Requirements for FixVid](#system-requirements-for-fixvid)
   - [Requirements for FFMPEG](#requirements-for-ffmpeg)
+- [Version Numbers](#version-numbers)
 - [Installation](#installation)
 - [Usage](#usage)
   - [Synopsis](#synopsis)
@@ -63,6 +64,20 @@ _[The program is written in Bash script and uses "Bashisms" which limit its oper
 - (optional for use of Nvidia encoders) an Nvidia graphics card with encoder support
 
 The program itself only requires FFMPEG as an external resource. There are no other required libraries or external binaries needed.
+
+[TOP](#contents)
+
+## Version Numbers
+
+FixVid uses [Semantic Versioning v2.0.0](https://semver.org/spec/v2.0.0.html) as created by [Tom Preston-Werner](http://tom.preston-werner.com/), inventor of Gravatars and cofounder of GitHub.
+
+Version numbers take the form `X.Y.Z` where `X` is the major version, `Y` is the minor version and `Z` is the patch version. The meaning of the different levels are:
+
+- Major version increases indicates that there is some kind of change in the API (how this program works as seen by the user) or the program features which is incompatible with previous version
+
+- Minor version increases indicates that there is some kind of change in the API (how this program works as seen by the user) or the program features which might be new, while still being compatible with all other versions of the same major version
+
+- Patch version increases indicate that there is some internal change, bug fixes, changes in logic, or other internal changes which do not create any incompatible changes within the same major version, and which do not add any features to the program operations or functionality
 
 [TOP](#contents)
 
