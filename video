@@ -78,7 +78,7 @@ function video_finalize {
   local video_source="${current_base}.mkv";
   [[ -s "$video_source" ]] || return 0;
   local video_dest="${dest_base}-${current_label}";
-  video_dest="-${current_codec_label:-$current_codec}.mkv";
+  video_dest+="-${current_codec_label:-$current_codec}.mkv";
   link "$video_source" "${dest_base}/${video_dest}" 2>/dev/null;
   return 0;
 }
