@@ -20,7 +20,7 @@ A Bash script for processing an existing video file, and possibly
 additional soundtrack or subtitles files, and remuxing the resulting
 streams into a new video file.
 
-Primary features are the abilty to adjust the video and audio to meet
+Primary features are the ability to adjust the video and audio to meet
 the user's needs when the original version does not.
 
 * Rescale the video to a different size
