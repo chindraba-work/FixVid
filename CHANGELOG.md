@@ -2,6 +2,16 @@
 
 ## Changelog
 
+### v1.0.2
+
+- Fixed typo in README file
+
+### v1.0.1
+
+- Fix issue with filename for finished videos
+- Add SymVer delcaration to the project
+- Fix links in README and USAGE files
+
 ### v1.0.0
 
 - Add option for a minimalistic version of fixvid.conf
