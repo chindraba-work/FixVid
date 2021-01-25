@@ -2,7 +2,7 @@
 
 ### Developer Certiticate of Origin
 
-This project uses the Developer Certificate of Origin, Version 1.1 used by Linux Foundation in developing the Linux Kernel. The Developer Certificate of Origin is in the root of this repository as [DCO.md][DCO], or online at [http://developercertificate.org/][DC]. In short, it says that you know where your contribution came from, you know you have the right to distribute it under the same license as this project, and that you can, and do, grant the right for this project to distribute it under the license listed in the [LICENSE.md][LMD] file of this project. You, as a contributor will say that you agree to the [DCO][DCO] by inluding a "Signed-off-by" line with any commit you make. The Command Line version of `git` makes doing so simple, use the `--signoff` or `-s` option when you do make your commit. Inside the commit message it will look like this:
+This project uses the Developer Certificate of Origin, Version 1.1 used by Linux Foundation in developing the Linux Kernel. The Developer Certificate of Origin is in the `docs` directory of this repository as [DCO][DCO], or online at [http://developercertificate.org/][DC]. In short, it says that you know where your contribution came from, you know you have the right to distribute it under the same license as this project, and that you can, and do, grant the right for this project to distribute it under the license listed in the [LICENSE][LMD] file of this project. You, as a contributor will say that you agree to the [DCO][DCO] by inluding a "Signed-off-by" line with any commit you make. The Command Line version of `git` makes doing so simple, use the `--signoff` or `-s` option when you do make your commit. Inside the commit message it will look like this:
 
     Signed-off-by: Ronald Lamoreaux <gitkey@chindraba.work>
 
@@ -43,22 +43,32 @@ Treat these like an issue you found. The project is small enough that there prob
 
 ---
 
-## Using the project locally
+## Style
 
-Once the project reaches a state where it is truly "usable" an initial release will be tagged. Prior to this, it is a collection of scripts that do something on their own, yet do not fulfill the goal. After that point is reached, changes will be primarily in the "user experience" and "cleaning the code" rather than new functions or new methods. At any stage you find the project, within the scope of the license, feel free to copy and use what you find.
+The project uses a simple style guideline:
 
----
-
-## Final reminder
-
-This project started from a personal need to modify many (hundreds) of videos to make them usable. Major emphasis on enhancing the audio to be near full-scale sound levels with reduced range between dialog and sound effects (especially when dialog is soft and sound effects are loud). Adding in subtitles when available helps cover for areas of sound that are not practical to adjust. Reducing the file size by re-encoding the video is a nice benefit, but not the motivation.
-
-Doing all the work by hand was very tedious. Using copy & paste, and then a single script that was continually re-edited for each video improved the process marginally. Creating a more robust alternative with details placed in a configuration file and the "work" into stable scripts became the genesis for this project. Therein lies the real goal, and objective, with anything else being "extras" that might be worthy, and yet are neglected or postponed until later.
-
+-  Try to copy the style of the file being modified
+-  Follow the remaining guidelines for new files
+-  Indent by 4 space _NO TABS_
+-  Blank lines between sections for reading ease
+-  Spaces around operators, including logic operators
+-  Liberal use of paramater quoting
+-  Names that make sense and describe the function or variable
+-  Comments for anything that is moderately complex
+-  Use of SPDX-License-Identifier in program files at the top of the file
+-  Use of a `vim` hint line at the bottom of the file
+-  Blocks open on the line that controls them (for, if, while, sub, etc.)
+-  Blocks close on their own line, see else for exceptions
+-  Else statements end one block and start the next on the same line
+-  Lines should stay within 80 characters if possible
+-  Statement continuation lines are indented
+-  Control block continuation lines are double indented
+-  Routines should fit on one screen
+-  Insert your own copyright line(s) after the existing ones, if any
 
   [DC]: http://developercertificate.org/
-  [DCO]: https://github.com/chindraba-work/FixVid/blob/master/DCO.md
-  [LMD]: https://github.com/chindraba-work/FixVid/blob/master/LICENSE.md
+  [DCO]: https://github.com/chindraba-work/FixVid/blob/master/docs/DCO
+  [LMD]: https://github.com/chindraba-work/FixVid/blob/master/LICENSE
   [GPG-help]: https://help.github.com/articles/generating-a-new-gpg-key/
   [GPG]: https://www.gnupg.org/
   [kio]: https://keybase.io/
